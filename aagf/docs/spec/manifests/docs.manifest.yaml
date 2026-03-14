@@ -1,0 +1,61 @@
+id: aagf-docs
+version: 0.1.0
+status: draft
+language: ru
+source_of_truth:
+  primary: docs/spec
+  derived:
+    - docs/human
+    - docs/adapters
+rule_precedence:
+  - docs/spec
+  - docs/README.md
+  - docs/AGENTS.md
+  - docs/human
+  - docs/adapters
+sections:
+  - id: core
+    title: Core
+    description: Базовые стек-независимые инварианты и правила.
+    source: docs/spec/core/README.md
+    spec_data: docs/spec/core/policies.yaml
+    target_human: docs/human/core/README.md
+  - id: stacks
+    title: Stacks
+    description: Стековые профили и заменяемые технологические блоки.
+    source: docs/spec/stacks/README.md
+    spec_data: docs/spec/stacks/profiles.yaml
+    target_human: docs/human/stacks/README.md
+  - id: workflows
+    title: Workflows
+    description: Повторяемые сценарии выполнения задач агентами.
+    source: docs/spec/workflows/README.md
+    spec_data: docs/spec/workflows/workflows.yaml
+    target_human: docs/human/workflows/README.md
+  - id: roles
+    title: Roles
+    description: Роли агентов, границы и правила handoff.
+    source: docs/spec/roles/README.md
+    spec_data: docs/spec/roles/roles.yaml
+    target_human: docs/human/roles/README.md
+  - id: adapters
+    title: Adapters
+    description: Маппинг source-слоя в средовые и runtime-представления.
+    source: docs/spec/adapters/README.md
+    spec_data: docs/spec/adapters/mappings.yaml
+    target_human: docs/human/adapters/README.md
+generators:
+  human_root: docs/human/README.md
+  targets:
+    - id: jetbrains
+      title: JetBrains
+      adapter_root: docs/adapters/jetbrains/README.md
+      runtime_dir: .aiassistant
+      runtime_rules: docs/adapters/jetbrains/runtime/.aiassistant/rules/README.md
+      runtime_prompts: docs/adapters/jetbrains/runtime/.aiassistant/prompts/README.md
+    - id: cursor
+      title: Cursor
+      adapter_root: docs/adapters/cursor/README.md
+      runtime_dir: .cursor
+      runtime_rules: docs/adapters/cursor/runtime/.cursor/rules/README.md
+      runtime_prompts: docs/adapters/cursor/runtime/.cursor/prompts/README.md

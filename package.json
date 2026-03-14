@@ -1,0 +1,27 @@
+{
+  "name": "ai-agent-governance-framework",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Declarative-first governance framework for AI agents",
+  "scripts": {
+    "docs:validate": "cd aagf && tsx tools/src/cli.ts validate --project-root ..",
+    "docs:generate": "cd aagf && tsx tools/src/cli.ts generate --project-root ..",
+    "docs:check": "cd aagf && tsx tools/src/cli.ts check --project-root ..",
+    "docs:test": "cd aagf && tsx tools/src/cli.ts test --project-root ..",
+    "docs:sync": "cd aagf && tsx tools/src/cli.ts sync --project-root ..",
+    "docs:sync:check": "cd aagf && tsx tools/src/cli.ts sync --check --project-root ..",
+    "docs:detect-stack": "cd aagf && tsx tools/src/cli.ts detect-stack --project-root ..",
+    "docs:bootstrap": "cd aagf && tsx tools/src/cli.ts bootstrap --project-root .."
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "nunjucks": "^3.2.4",
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.7.2",
+    "@types/nunjucks": "^3.2.6",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}

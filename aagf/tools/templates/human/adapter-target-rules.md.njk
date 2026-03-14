@@ -1,0 +1,44 @@
+<!-- GENERATED FILE: DO NOT EDIT MANUALLY -->
+<!-- Source: docs/spec/manifests/docs.manifest.yaml + {{ target.runtime_rules }} -->
+
+# rules (human projection)
+
+Этот документ является человеко-читаемой проекцией target-runtime rules для `{{ target.id }}`.
+
+## Source mapping
+
+- Product source: `docs/spec/**`
+- Adapter runtime source: `{{ target.runtime_rules }}`
+- Runtime compatibility: `{{ target.runtime_dir }}/rules/**`
+- Human projection path: `runtime/{{ target.human_runtime_dir }}/rules/**`
+
+## Обязательные условия
+
+- Правила MUST извлекаться из `docs/spec/**`.
+- Правила MUST NOT вводить новые нормативные пункты, отсутствующие в source-слое.
+- IF runtime rules расходятся с source-слоем THEN приоритет MUST быть у `docs/spec/**`.
+
+## Карта правил по секциям
+{% for section in sections %}
+### {{ section.title }} (`{{ section.id }}`)
+{% for entry in section.spec.entries %}
+#### {{ entry.id }} - {{ entry.title }}
+
+Назначение: {{ entry.intent }}
+
+Ключевые правила:
+{% for rule in entry.rules %}
+- {{ rule }}
+{% endfor %}
+
+Условия (IF -> THEN):
+{% for condition in entry.if_then %}
+- IF {{ condition.if }} THEN {{ condition.then }}
+{% endfor %}
+
+Проверки:
+{% for check in entry.checks %}
+- {{ check }}
+{% endfor %}
+{% endfor %}
+{% endfor %}

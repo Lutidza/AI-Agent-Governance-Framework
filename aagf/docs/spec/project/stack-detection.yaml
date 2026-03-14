@@ -1,0 +1,80 @@
+version: 1
+mode: apply
+thresholds:
+  auto: 0.85
+  confirm: 0.6
+candidates:
+  - id: node-typescript
+    title: Node.js + TypeScript
+    file_markers:
+      - path: package.json
+        weight: 0.35
+        evidence: Обнаружен package.json.
+      - path: tsconfig.json
+        weight: 0.2
+        evidence: Обнаружен tsconfig.json.
+      - path: pnpm-lock.yaml
+        weight: 0.05
+        evidence: Обнаружен pnpm-lock.yaml.
+      - path: package-lock.json
+        weight: 0.05
+        evidence: Обнаружен package-lock.json.
+      - path: yarn.lock
+        weight: 0.05
+        evidence: Обнаружен yarn.lock.
+    package_markers:
+      - dependency: typescript
+        scope: any
+        weight: 0.2
+        evidence: Обнаружена зависимость typescript.
+      - dependency: next
+        scope: any
+        weight: 0.1
+        evidence: Обнаружена зависимость next.
+      - dependency: react
+        scope: any
+        weight: 0.05
+        evidence: Обнаружена зависимость react.
+  - id: python
+    title: Python
+    file_markers:
+      - path: pyproject.toml
+        weight: 0.4
+        evidence: Обнаружен pyproject.toml.
+      - path: requirements.txt
+        weight: 0.25
+        evidence: Обнаружен requirements.txt.
+      - path: poetry.lock
+        weight: 0.15
+        evidence: Обнаружен poetry.lock.
+      - path: setup.py
+        weight: 0.2
+        evidence: Обнаружен setup.py.
+  - id: go
+    title: Go
+    file_markers:
+      - path: go.mod
+        weight: 0.7
+        evidence: Обнаружен go.mod.
+      - path: go.sum
+        weight: 0.2
+        evidence: Обнаружен go.sum.
+  - id: rust
+    title: Rust
+    file_markers:
+      - path: Cargo.toml
+        weight: 0.7
+        evidence: Обнаружен Cargo.toml.
+      - path: Cargo.lock
+        weight: 0.2
+        evidence: Обнаружен Cargo.lock.
+last_result:
+  selected_stack: node-typescript
+  confidence: 0.8
+  decision: confirm
+  evidence:
+    - Обнаружен package.json.
+    - Обнаружен tsconfig.json.
+    - Обнаружен package-lock.json.
+    - Обнаружена зависимость typescript.
+  recommendation: explicit-confirm-required

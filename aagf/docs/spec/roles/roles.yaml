@@ -1,0 +1,33 @@
+section: roles
+version: 1
+entries:
+  - id: AAGF-ROLE-001
+    title: Orchestrator (Дирижер)
+    intent: Управляет задачей, распределяет шаги между ролями и принимает итоговый handoff.
+    rules:
+      - Orchestrator MUST определять рабочий контур и целевой workflow до старта исполнения.
+      - Orchestrator MUST назначать bounded scope для каждой подроли.
+      - Orchestrator MUST NOT делегировать критические решения без финальной верификации.
+    if_then:
+      - if: В задаче участвуют несколько ролей
+        then: Orchestrator MUST выпустить явный handoff protocol для каждой роли.
+      - if: Обнаружен конфликт между результатами ролей
+        then: Orchestrator MUST остановить merge и инициировать reconciliation шаг.
+    checks:
+      - Проверить полноту handoff от каждой роли.
+      - Проверить, что финальный результат соответствует исходному плану.
+  - id: AAGF-ROLE-002
+    title: Implementer (Исполнитель)
+    intent: Вносит изменения строго в пределах согласованного scope и workflow.
+    rules:
+      - Implementer MUST работать только с файлами в согласованном scope.
+      - Implementer MUST передавать handoff после каждого значимого шага.
+      - Implementer MUST NOT менять policy/preference без запроса orchestrator или пользователя.
+    if_then:
+      - if: Обнаружена неопределенность в требованиях
+        then: Implementer MUST остановиться и запросить уточнение.
+      - if: Изменение затрагивает внешний контур
+        then: Implementer MUST запросить эскалацию у Orchestrator.
+    checks:
+      - Проверить, что изменения ограничены scope.
+      - Проверить, что handoff содержит риски и рекомендации по проверке.

@@ -1,0 +1,28 @@
+version: 1
+default_target: all
+packs:
+  - id: core
+    type: section
+    enabled: true
+  - id: stacks
+    type: section
+    enabled: true
+  - id: workflows
+    type: section
+    enabled: true
+  - id: roles
+    type: section
+    enabled: true
+  - id: adapters
+    type: section
+    enabled: true
+  - id: adapters.jetbrains
+    type: target
+    enabled: true
+  - id: adapters.cursor
+    type: target
+    enabled: true
+policies:
+  non_destructive_apply: true
+  require_confirm_for_runtime_sync: true
+  require_confirm_for_merge_root_agents: true

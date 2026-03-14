@@ -1,0 +1,34 @@
+version: 1
+status: active
+project:
+  id: node-typescript
+  root: .
+  docs_installed: true
+  root_agents:
+    mode: merge
+    overwrite: false
+facts:
+  files_present:
+    - package-lock.json
+    - package.json
+    - tsconfig.json
+  package_managers:
+    - npm
+  languages:
+    - typescript
+    - javascript
+  runtimes:
+    jetbrains: .aiassistant
+    cursor: .cursor
+detection:
+  selected_stack: node-typescript
+  confidence: 0.8
+  decision: confirm
+  evidence:
+    - Обнаружен package.json.
+    - Обнаружен tsconfig.json.
+    - Обнаружен package-lock.json.
+    - Обнаружена зависимость typescript.
+notes:
+  - Root AGENTS.md должен применяться только через merge-предложение.
+  - Dry-run является режимом по умолчанию.

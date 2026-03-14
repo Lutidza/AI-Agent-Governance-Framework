@@ -1,0 +1,68 @@
+<!-- GENERATED FILE: DO NOT EDIT MANUALLY -->
+<!-- Source: docs/spec/manifests/docs.manifest.yaml + {{ section.source }} -->
+
+# {{ section.id }}
+
+{{ section.description }}
+
+## Источник
+
+- Spec-source: [`{{ section.source }}`](../../spec/{{ section.id }}/README.md)
+- Spec-data: [`{{ section.spec_data }}`](../../spec/{{ section.id }}/{{ section.spec_data | replace("docs/spec/" ~ section.id ~ "/", "") }})
+
+## Операционные записи
+{% for entry in section.spec.entries %}
+### {{ entry.id }} - {{ entry.title }}
+
+Назначение: {{ entry.intent }}
+
+Правила:
+{% for rule in entry.rules %}
+- {{ rule }}
+{% endfor %}
+
+IF -> THEN:
+{% for condition in entry.if_then %}
+- IF {{ condition.if }} THEN {{ condition.then }}
+{% endfor %}
+
+Проверки:
+{% for check in entry.checks %}
+- {{ check }}
+{% endfor %}
+{% if entry.steps and entry.steps.length > 0 %}
+
+Этапы:
+{% for step in entry.steps %}
+{{ loop.index }}. {{ step }}
+{% endfor %}
+{% endif %}
+{% if entry.handoff and entry.handoff.length > 0 %}
+
+Handoff:
+{% for item in entry.handoff %}
+- {{ item }}
+{% endfor %}
+{% endif %}
+{% if entry.prompts and entry.prompts.length > 0 %}
+
+Prompt blueprints:
+{% for prompt in entry.prompts %}
+- `{{ prompt.id }}` — {{ prompt.title }}: {{ prompt.objective }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% if section.id == "adapters" %}
+
+## Target Human Projections
+{% for target in targets_human %}
+- [{{ target.id }}/README.md]({{ target.id }}/README.md)
+- [{{ target.id }}/runtime/{{ target.human_runtime_dir }}/rules/README.md]({{ target.id }}/runtime/{{ target.human_runtime_dir }}/rules/README.md)
+- [{{ target.id }}/runtime/{{ target.human_runtime_dir }}/prompts/README.md]({{ target.id }}/runtime/{{ target.human_runtime_dir }}/prompts/README.md)
+{% endfor %}
+{% endif %}
+
+## Инвариант синхронизации
+
+- Этот документ MUST рассматриваться как derived-представление source-слоя.
+- IF документ расходится с source-слоем THEN приоритет MUST быть у `docs/spec/**`.

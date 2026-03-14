@@ -1,0 +1,29 @@
+<!-- GENERATED FILE: DO NOT EDIT MANUALLY -->
+<!-- Source: docs/spec/manifests/docs.manifest.yaml -->
+
+# docs/human - human-readable layer
+
+Этот каталог содержит человеко-читаемую проекцию правил из `docs/spec/**`.
+
+## Правила слоя
+
+- `docs/human/**` MUST быть синхронизирован с `docs/spec/**`.
+- Прямые правки в `docs/human/**` MUST выполняться только как исключение по явному запросу.
+- IF выполнена прямая правка в `docs/human/**` THEN соответствующая правка в `docs/spec/**` MUST быть выполнена в том же шаге.
+
+## Карта разделов
+{% for section in sections %}
+- [{{ section.id }}/README.md]({{ section.id }}/README.md) - {{ section.title }} (entries: {{ section.spec.entries | length }})
+{% endfor %}
+
+## Метаданные генерации
+
+- Manifest: `{{ manifest.id }}`
+- Version: `{{ manifest.version }}`
+- Status: `{{ manifest.status }}`
+- Language: `{{ manifest.language }}`
+- Sections: `{{ stats.sections }}`
+- Entries: `{{ stats.entries }}`
+- Rules: `{{ stats.rules }}`
+- IF->THEN: `{{ stats.if_then }}`
+- Prompts: `{{ stats.prompts }}`

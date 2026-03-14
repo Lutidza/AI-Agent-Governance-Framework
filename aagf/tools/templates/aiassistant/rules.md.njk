@@ -1,0 +1,27 @@
+<!-- GENERATED FILE: DO NOT EDIT MANUALLY -->
+<!-- Source: docs/spec/manifests/docs.manifest.yaml -->
+
+# rules
+
+Здесь должны храниться переносимые rule-артефакты docs-контура для target `{{ target.id }}`.
+
+## Обязательные условия
+
+- Rule-файлы MUST опираться на `docs/spec/**`.
+- Rule-файлы MUST использовать нормативные маркеры `MUST`, `MUST NOT`, `MAY`.
+- Rule-файлы MUST быть совместимы с runtime-каталогом `{{ target.runtime_dir }}/rules/**`.
+- IF rule конфликтует с source-слоем THEN конфликт MUST быть устранен через изменение `docs/spec/**`.
+
+## Сводный индекс правил по source-спецификациям
+{% for section in sections %}
+### {{ section.id }}
+{% for entry in section.spec.entries %}
+- `{{ entry.id }}` {{ entry.title }}
+{% for rule in entry.rules %}
+- RULE: {{ rule }}
+{% endfor %}
+{% for condition in entry.if_then %}
+- IF {{ condition.if }} THEN {{ condition.then }}
+{% endfor %}
+{% endfor %}
+{% endfor %}

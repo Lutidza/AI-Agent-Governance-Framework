@@ -1,0 +1,124 @@
+section: workflows
+version: 1
+entries:
+  - id: AAGF-WF-001
+    title: Plan-First Change Workflow
+    intent: Любое нетривиальное изменение должно проходить анализ, план и контролируемое выполнение.
+    rules:
+      - Для нетривиальной задачи агент MUST выполнить этапы analyze -> plan -> implement -> verify.
+      - Этап implement MUST NOT начинаться до фиксации плана.
+      - Handoff MUST содержать измененные файлы, риски и проверки.
+    if_then:
+      - if: Задача затрагивает архитектуру или несколько подсистем
+        then: Агент MUST использовать reasoning-intensive профиль и детальный план.
+      - if: На этапе verify обнаружен regression risk
+        then: Агент MUST остановить продвижение и предложить корректирующий план.
+    checks:
+      - Проверить наличие плана перед код-изменениями.
+      - Проверить полноту handoff и верификации.
+    steps:
+      - Analyze текущего состояния и ограничений.
+      - Plan с шагами, рисками и критериями завершения.
+      - Implement в согласованном контуре.
+      - Verify через валидацию, генерацию и drift-check.
+    handoff:
+      - Перечень измененных файлов.
+      - Обоснование ключевых решений.
+      - Список обязательных проверок для следующего шага.
+    prompts:
+      - id: AAGF-PROMPT-PLAN-FIRST
+        title: Plan First Execution
+        objective: Принудить агента сначала анализировать и планировать, потом выполнять изменения.
+        template: |
+          Роль: исполнитель изменения.
+          Вход: описание задачи и целевой контур.
+          Шаг 1: Выполни анализ текущего состояния.
+          Шаг 2: Сформируй план с рисками и критериями завершения.
+          Шаг 3: Выполни изменения только после фиксации плана.
+          Шаг 4: Верни handoff: файлы, риски, проверки.
+  - id: AAGF-WF-002
+    title: Spec-Driven Documentation Workflow
+    intent: Любое изменение документации должно проходить через aagf/docs/spec с обязательной синхронизацией производных слоев.
+    rules:
+      - Нормативные изменения MUST вноситься сначала в aagf/docs/spec/**.
+      - После изменений MUST выполняться docs:generate и docs:check.
+      - Drift между source и derived слоями MUST NOT оставаться в репозитории.
+    if_then:
+      - if: Изменение внесено только в generated файл
+        then: Агент MUST перенести изменение в соответствующий spec-файл и перегенерировать слой.
+      - if: docs:check возвращает drift
+        then: Изменение MUST считаться незавершенным до устранения drift.
+    checks:
+      - Проверить успех команд docs:validate, docs:generate, docs:check.
+      - Проверить, что generated файлы соответствуют обновленному source.
+    steps:
+      - Обновить нужный spec-файл в aagf/docs/spec/**.
+      - Выполнить генерацию производных слоев.
+      - Проверить отсутствие drift и корректность отображения.
+      - Передать handoff с результатом проверок.
+    handoff:
+      - Список измененных spec-файлов.
+      - Список сгенерированных файлов.
+      - Результаты validate/generate/check.
+    prompts:
+      - id: AAGF-PROMPT-SPEC-SYNC
+        title: Spec Sync Enforcement
+        objective: Гарантировать, что документация обновляется через source-слой и проходит drift-контроль.
+        template: |
+          Роль: maintainer документации.
+          Шаг 1: Обнови source-правила в aagf/docs/spec/**.
+          Шаг 2: Запусти docs:generate.
+          Шаг 3: Запусти docs:check.
+          Шаг 4: Подготовь handoff с перечнем обновленных артефактов и статусом drift.
+  - id: AAGF-WF-BOOTSTRAP
+    title: AAGF Bootstrap Integration Workflow
+    intent: Интеграция AAGF в новый или существующий проект должна выполняться как управляемый протокол с явными фазами, confirm-gates и lock-конфигурацией.
+    rules:
+      - Workflow MUST выполняться по фазам Install -> Detect -> Confirm -> Compose -> Generate -> Sync -> Lock.
+      - Install MUST подключать aagf/ в проект и MUST применять root AGENTS.md только через merge-предложение без неявного overwrite.
+      - Detect MUST выполнять offline-детекцию стека и контекста проекта по артефактам репозитория и MUST вычислять confidence score.
+      - "Confirm MUST применять пороги: confidence >= 0.85 -> auto; 0.60-0.84 -> explicit confirm; < 0.60 -> unknown profile и ручной выбор."
+      - Compose MUST формировать enabled packs и overrides до фазы Generate.
+      - Generate MUST собирать aagf/docs/human/** и aagf/docs/adapters/** только из aagf/docs/spec/**.
+      - Sync MUST выполняться только после явного подтверждения пользователя и только через target-aware sync-процесс.
+      - Lock MUST фиксировать итоговую конфигурацию проекта в aagf/docs/spec/project/profile.lock.yaml.
+    if_then:
+      - if: confidence находится в диапазоне 0.60-0.84
+        then: Агент MUST остановиться на phase gate и MUST запросить явное подтверждение перед Generate/Sync.
+      - if: confidence ниже 0.60
+        then: Агент MUST установить статус unknown и MUST NOT выполнять auto-apply профиля.
+      - if: Запрошена синхронизация runtime-контуров
+        then: Агент MUST сначала выполнить dry-run (`docs:sync:check`) и MUST применять sync только после явного подтверждения.
+      - if: Требуется изменение root AGENTS.md
+        then: Агент MUST сформировать diff/merge-предложение и MUST NOT перезаписывать файл автоматически.
+    checks:
+      - Проверить наличие aagf/docs/spec/project/context.yaml, stack-detection.yaml, enabled-packs.yaml, overrides.yaml и profile.lock.yaml.
+      - Проверить, что detect-результат содержит evidence, confidence и decision.
+      - Проверить, что Generate выполняется только из aagf/docs/spec/** без ручных правок derived-слоев.
+      - Проверить, что runtime sync прошел через confirm gate.
+      - Проверить, что lock-файл зафиксировал выбранный профиль и включенные packs.
+    steps:
+      - "Install: добавить aagf/ и подготовить merge-предложение для root AGENTS.md."
+      - "Detect: выполнить скан репозитория, собрать evidence и вычислить confidence."
+      - "Confirm: применить confidence-пороги и запросить подтверждение при необходимости."
+      - "Compose: выбрать packs и локальные overrides."
+      - "Generate: собрать aagf/docs/human/** и aagf/docs/adapters/**."
+      - "Sync: синхронизировать runtime-цели только после явного подтверждения."
+      - "Lock: зафиксировать профиль в profile.lock.yaml."
+    handoff:
+      - "Результат Detect: выбранный стек, confidence, evidence и decision."
+      - Набор активированных packs и overrides.
+      - Статус Generate/Sync и перечень измененных файлов.
+      - Состояние lock-файла и рекомендации для следующего цикла.
+    prompts:
+      - id: AAGF-PROMPT-BOOTSTRAP-GUIDED
+        title: Bootstrap Guided Orchestration
+        objective: Оркестрировать диалог по фазам Detect/Confirm/Compose без нарушения non-destructive правил интеграции.
+        template: |
+          Роль: оркестратор bootstrap-интеграции AAGF.
+          Фаза Detect: выполни скан и покажи confidence + evidence.
+          Фаза Confirm: запроси подтверждение, если confidence < 0.85.
+          Фаза Compose: предложи packs и overrides, зафиксируй выбор.
+          Фаза Generate: выполняй только из aagf/docs/spec/**.
+          Фаза Sync: запрашивай явное подтверждение перед runtime-синхронизацией.
+          Фаза Lock: зафиксируй итоговую конфигурацию в profile.lock.yaml.

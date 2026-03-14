@@ -1,0 +1,39 @@
+section: adapters
+version: 1
+entries:
+  - id: AAGF-ADAPTER-001
+    title: Docs -> Human Projection Mapping
+    intent: Формализовать правила преобразования spec-содержимого в человеко-читаемые документы.
+    rules:
+      - Генератор MUST строить aagf/docs/human/** из YAML-спеков и manifest-конфигурации.
+      - Генератор MUST строить aagf/docs/human/adapters/<target>/** как человеко-читаемую проекцию target-runtime adapter-слоя.
+      - Каждый generated документ MUST содержать ссылку на source.
+      - Human-проекция MUST NOT добавлять нормативные правила, отсутствующие в source.
+    if_then:
+      - if: В human-слое обнаружен новый нормативный пункт без source
+        then: Пункт MUST быть удален или перенесен в source.
+      - if: Source-файл переименован
+        then: Generator mapping MUST быть обновлен в manifest до следующей генерации.
+    checks:
+      - Проверить валидность manifest и section specs.
+      - Проверить корректность ссылок source -> derived.
+      - Проверить наличие human-проекций для каждого target из manifest.
+  - id: AAGF-ADAPTER-002
+    title: Docs -> Multi-Target IDE Projection Mapping
+    intent: Формализовать правила построения переносимых adapter-пакетов для JetBrains и Cursor.
+    rules:
+      - aagf/docs/adapters/jetbrains/** MUST агрегировать нормативные правила и prompts из aagf/docs/spec/** для runtime `.aiassistant`.
+      - aagf/docs/adapters/cursor/** MUST агрегировать нормативные правила и prompts из aagf/docs/spec/** для runtime `.cursor`.
+      - Multi-target adapter-проекции MUST использовать только переносимые настройки без machine-specific данных.
+      - Синхронизация в активные runtime-контуры MUST выполняться только через target-aware sync (`docs:sync`) после явного подтверждения пользователя.
+    if_then:
+      - if: Workflow spec содержит prompts
+        then: Prompt-блок MUST быть включен в prompts-проекции каждого поддерживаемого target.
+      - if: Adapter-проекция конфликтует с source
+        then: Source MUST иметь приоритет, а adapter MUST быть перегенерирован.
+      - if: Запрошена синхронизация в `/.aiassistant/**` или `/.cursor/**`
+        then: Агент MUST сначала выполнить `docs:sync:check`, показать изменения и только после подтверждения выполнять `docs:sync`.
+    checks:
+      - Проверить, что rules/prompts отражают актуальный source для jetbrains и cursor.
+      - Проверить отсутствие абсолютных путей и локальных зависимостей.
+      - Проверить, что runtime-изменения выполнены через sync-процесс, а не ручными правками.

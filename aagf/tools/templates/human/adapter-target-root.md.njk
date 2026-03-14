@@ -1,0 +1,35 @@
+<!-- GENERATED FILE: DO NOT EDIT MANUALLY -->
+<!-- Source: docs/spec/manifests/docs.manifest.yaml + docs/adapters/{{ target.id }}/** -->
+
+# adapters/{{ target.id }} (human projection)
+
+Этот документ описывает человеко-читаемую проекцию target-адаптера `{{ target.id }}`.
+
+## Инварианты
+
+- `docs/human/adapters/{{ target.id }}/**` MUST рассматриваться как derived-слой.
+- `docs/human/adapters/{{ target.id }}/**` MUST синхронизироваться с `docs/spec/**`.
+- IF возникает конфликт с source-слоем THEN приоритет MUST быть у `docs/spec/**`.
+
+## Source mapping
+
+- Product source: `docs/spec/**`
+- Adapter package source: `docs/adapters/{{ target.id }}/**`
+- Runtime directory: `{{ target.runtime_dir }}/**`
+- Human runtime projection directory: `{{ target.human_runtime_dir }}/**`
+- Runtime rules source: `{{ target.runtime_rules }}`
+- Runtime prompts source: `{{ target.runtime_prompts }}`
+
+## Карта human-проекции target-адаптера
+
+- [runtime/{{ target.human_runtime_dir }}/rules/README.md](runtime/{{ target.human_runtime_dir }}/rules/README.md)
+- [runtime/{{ target.human_runtime_dir }}/prompts/README.md](runtime/{{ target.human_runtime_dir }}/prompts/README.md)
+
+## Метаданные генерации
+
+- Manifest: `{{ manifest.id }}`
+- Version: `{{ manifest.version }}`
+- Target: `{{ target.id }}`
+- Sections: `{{ stats.sections }}`
+- Rules: `{{ stats.rules }}`
+- Prompts: `{{ stats.prompts }}`

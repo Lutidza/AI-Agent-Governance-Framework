@@ -1,0 +1,27 @@
+{
+  "name": "aagf-kit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Portable AAGF kit (docs + tooling)",
+  "scripts": {
+    "docs:validate": "tsx tools/src/cli.ts validate",
+    "docs:generate": "tsx tools/src/cli.ts generate",
+    "docs:check": "tsx tools/src/cli.ts check",
+    "docs:test": "tsx tools/src/cli.ts test",
+    "docs:sync": "tsx tools/src/cli.ts sync",
+    "docs:sync:check": "tsx tools/src/cli.ts sync --check",
+    "docs:detect-stack": "tsx tools/src/cli.ts detect-stack",
+    "docs:bootstrap": "tsx tools/src/cli.ts bootstrap"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "nunjucks": "^3.2.4",
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.7.2",
+    "@types/nunjucks": "^3.2.6",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}

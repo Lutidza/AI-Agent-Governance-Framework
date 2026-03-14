@@ -1,0 +1,37 @@
+<!-- GENERATED FILE: DO NOT EDIT MANUALLY -->
+<!-- Source: docs/spec/manifests/docs.manifest.yaml + {{ target.runtime_prompts }} -->
+
+# prompts (human projection)
+
+Этот документ является человеко-читаемой проекцией target-runtime prompts для `{{ target.id }}`.
+
+## Source mapping
+
+- Product source: `docs/spec/**`
+- Adapter runtime source: `{{ target.runtime_prompts }}`
+- Runtime compatibility: `{{ target.runtime_dir }}/prompts/**`
+- Human projection path: `runtime/{{ target.human_runtime_dir }}/prompts/**`
+
+## Обязательные условия
+
+- Prompt-шаблоны MUST извлекаться из workflow source-слоя.
+- Prompt-шаблоны MUST NOT вводить правила, отсутствующие в `docs/spec/**`.
+- IF runtime prompts расходятся с source-слоем THEN приоритет MUST быть у `docs/spec/**`.
+
+## Prompt Blueprints из workflow-spec
+{% if workflow_prompts.length == 0 %}
+Нет доступных prompt-blueprints. Добавьте блок `prompts` в `docs/spec/workflows/workflows.yaml`.
+{% else %}
+{% for prompt in workflow_prompts %}
+### {{ prompt.id }} - {{ prompt.title }}
+
+Источник: `{{ prompt.section_id }}` / `{{ prompt.entry_id }} ({{ prompt.entry_title }})`
+
+Цель: {{ prompt.objective }}
+
+Шаблон:
+```text
+{{ prompt.template }}
+```
+{% endfor %}
+{% endif %}

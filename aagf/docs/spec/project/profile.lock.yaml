@@ -1,0 +1,23 @@
+version: 1
+locked: true
+profile_id: node-typescript
+detected_stack:
+  id: node-typescript
+  confidence: 0.8
+  decision: confirm
+enabled_packs:
+  - core
+  - stacks
+  - workflows
+  - roles
+  - adapters
+  - adapters.jetbrains
+  - adapters.cursor
+overrides_ref: aagf/docs/spec/project/overrides.yaml
+generated_targets:
+  - jetbrains
+  - cursor
+root_agents:
+  mode: merge
+  overwrite: false
+  confirmed: true
