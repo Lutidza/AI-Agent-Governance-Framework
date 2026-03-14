@@ -1,0 +1,33 @@
+<!-- GENERATED FILE: DO NOT EDIT MANUALLY -->
+<!-- Source: docs/spec/core/README.md + docs/adapters/cursor/runtime/.cursor/rules/core/AAGF-CORE-001.md -->
+
+# AAGF-CORE-001 (human projection)
+
+Этот документ является человеко-читаемой проекцией runtime rule-entry для target `cursor`.
+
+## Source mapping
+
+- Product source section: `docs/spec/core/README.md`
+- Adapter runtime source: `docs/adapters/cursor/runtime/.cursor/rules/core/AAGF-CORE-001.md`
+- Runtime compatibility: `.cursor/rules/core/AAGF-CORE-001.md`
+- Human projection path: `runtime/cursor/rules/core/AAGF-CORE-001.md`
+
+## Контекст
+
+- Section: `core` / Core
+- Rule ID: `AAGF-CORE-001`
+- Rule title: Declarative-First Source of Truth
+- Intent: Все нормативные изменения должны начинаться в machine-readable слое.
+
+## Нормативные правила
+- aagf/docs/spec/** MUST рассматриваться как primary source of truth.
+- aagf/docs/human/** и aagf/docs/adapters/** MUST рассматриваться как derived layers.
+- Прямые изменения в derived layers MUST NOT считаться завершенными без синхронизации source-слоя.
+
+## Условия IF -> THEN
+- IF Изменение внесено только в aagf/docs/human/** или aagf/docs/adapters/** THEN Агент MUST внести эквивалентное изменение в aagf/docs/spec/** в том же шаге.
+- IF Выявлен конфликт между source и derived слоями THEN Приоритет MUST быть у aagf/docs/spec/**.
+
+## Проверки
+- Проверить, что изменение зафиксировано в aagf/docs/spec/**.
+- Проверить, что docs:generate не создает неожиданный drift.

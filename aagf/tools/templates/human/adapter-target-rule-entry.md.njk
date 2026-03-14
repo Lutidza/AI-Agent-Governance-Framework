@@ -1,0 +1,35 @@
+<!-- GENERATED FILE: DO NOT EDIT MANUALLY -->
+<!-- Source: {{ rule_entry.section_source }} + {{ rule_entry.runtime_path }} -->
+
+# {{ rule_entry.entry.id }} (human projection)
+
+Этот документ является человеко-читаемой проекцией runtime rule-entry для target `{{ target.id }}`.
+
+## Source mapping
+
+- Product source section: `{{ rule_entry.section_source }}`
+- Adapter runtime source: `{{ rule_entry.runtime_path }}`
+- Runtime compatibility: `{{ target.runtime_dir }}/rules/{{ rule_entry.section_id }}/{{ rule_entry.entry.id }}.md`
+- Human projection path: `runtime/{{ target.human_runtime_dir }}/rules/{{ rule_entry.section_id }}/{{ rule_entry.entry.id }}.md`
+
+## Контекст
+
+- Section: `{{ rule_entry.section_id }}` / {{ rule_entry.section_title }}
+- Rule ID: `{{ rule_entry.entry.id }}`
+- Rule title: {{ rule_entry.entry.title }}
+- Intent: {{ rule_entry.entry.intent }}
+
+## Нормативные правила
+{% for rule in rule_entry.entry.rules %}
+- {{ rule }}
+{% endfor %}
+
+## Условия IF -> THEN
+{% for condition in rule_entry.entry.if_then %}
+- IF {{ condition.if }} THEN {{ condition.then }}
+{% endfor %}
+
+## Проверки
+{% for check in rule_entry.entry.checks %}
+- {{ check }}
+{% endfor %}

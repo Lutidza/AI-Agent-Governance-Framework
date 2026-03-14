@@ -80,6 +80,15 @@ type GeneratorTarget = {
   runtime_prompts: string;
 };
 
+type TargetRuleEntryProjection = {
+  section_id: string;
+  section_title: string;
+  section_source: string;
+  entry: SectionEntry;
+  runtime_path: string;
+  human_path: string;
+};
+
 type DocsManifest = {
   id: string;
   version: string;
@@ -627,6 +636,28 @@ function toHumanAdapterPath(adapterPath: string, runtimeDir: string): string {
   return `docs/human/adapters/${humanRelativePath}`;
 }
 
+function buildTargetRuleEntries(
+  target: GeneratorTarget,
+  sections: EnrichedSection[]
+): TargetRuleEntryProjection[] {
+  const rulesDir = path.posix.dirname(target.runtime_rules);
+
+  return sections.flatMap((section) =>
+    section.spec.entries.map((entry) => {
+      const runtimePath = `${rulesDir}/${section.id}/${entry.id}.md`;
+
+      return {
+        section_id: section.id,
+        section_title: section.title,
+        section_source: section.source,
+        entry,
+        runtime_path: runtimePath,
+        human_path: toHumanAdapterPath(runtimePath, target.runtime_dir)
+      };
+    })
+  );
+}
+
 function renderOutputs(
   manifest: DocsManifest,
   sections: EnrichedSection[],
@@ -653,12 +684,14 @@ function renderOutputs(
 
   for (const target of targets) {
     const humanRuntimeDir = toHumanRuntimeDir(target.runtime_dir);
+    const targetRuleEntries = buildTargetRuleEntries(target, sections);
     const targetContext = {
       ...commonContext,
       target: {
         ...target,
         human_runtime_dir: humanRuntimeDir
-      }
+      },
+      rule_entries: targetRuleEntries
     };
 
     outputs.set(
@@ -670,6 +703,16 @@ function renderOutputs(
       target.runtime_rules,
       env.render("aiassistant/rules.md.njk", targetContext)
     );
+
+    for (const ruleEntry of targetRuleEntries) {
+      outputs.set(
+        ruleEntry.runtime_path,
+        env.render("aiassistant/rule-entry.md.njk", {
+          ...targetContext,
+          rule_entry: ruleEntry
+        })
+      );
+    }
 
     outputs.set(
       target.runtime_prompts,
@@ -685,6 +728,16 @@ function renderOutputs(
       toHumanAdapterPath(target.runtime_rules, target.runtime_dir),
       env.render("human/adapter-target-rules.md.njk", targetContext)
     );
+
+    for (const ruleEntry of targetRuleEntries) {
+      outputs.set(
+        ruleEntry.human_path,
+        env.render("human/adapter-target-rule-entry.md.njk", {
+          ...targetContext,
+          rule_entry: ruleEntry
+        })
+      );
+    }
 
     outputs.set(
       toHumanAdapterPath(target.runtime_prompts, target.runtime_dir),

@@ -3,7 +3,7 @@
 
 # rules
 
-Здесь должны храниться переносимые rule-артефакты docs-контура для target `{{ target.id }}`.
+Индекс переносимых rule-артефактов docs-контура для target `{{ target.id }}`.
 
 ## Обязательные условия
 
@@ -12,16 +12,18 @@
 - Rule-файлы MUST быть совместимы с runtime-каталогом `{{ target.runtime_dir }}/rules/**`.
 - IF rule конфликтует с source-слоем THEN конфликт MUST быть устранен через изменение `docs/spec/**`.
 
-## Сводный индекс правил по source-спецификациям
+## Модульная структура
+
+- Каждый rule-entry MUST храниться в отдельном файле `{{ target.runtime_dir }}/rules/<section>/<rule-id>.md`.
+- Индекс MUST использоваться только как навигационный и контрольный артефакт.
+- IF в `rules/README.md` присутствуют нормативные пункты без entry-файлов THEN генерация MUST считаться неконсистентной.
+
+## Карта rule-файлов по source-спецификациям
 {% for section in sections %}
 ### {{ section.id }}
-{% for entry in section.spec.entries %}
-- `{{ entry.id }}` {{ entry.title }}
-{% for rule in entry.rules %}
-- RULE: {{ rule }}
-{% endfor %}
-{% for condition in entry.if_then %}
-- IF {{ condition.if }} THEN {{ condition.then }}
-{% endfor %}
+{% for rule_entry in rule_entries %}
+{% if rule_entry.section_id == section.id %}
+- [`{{ rule_entry.entry.id }}` {{ rule_entry.entry.title }}](./{{ rule_entry.section_id }}/{{ rule_entry.entry.id }}.md)
+{% endif %}
 {% endfor %}
 {% endfor %}
