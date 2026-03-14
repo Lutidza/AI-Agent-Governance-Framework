@@ -1,10 +1,14 @@
 version: 1
-locked: true
-profile_id: node-typescript
+locked: false
+profile_id: manual-profile
 detected_stack:
-  id: node-typescript
-  confidence: 0.8
-  decision: confirm
+  id: unknown
+  confidence: 0
+  decision: unknown
+  source: mcp
+  session_id: none
+  status: pending-confirm
+  stack_context_ref: aagf/docs/spec/project/stack-context.yaml
 enabled_packs:
   - core
   - stacks
@@ -20,7 +24,7 @@ generated_targets:
 root_agents:
   mode: replace
   overwrite: true
-  confirmed: true
+  confirmed: false
 governance:
-  active_commenting_profile: node-typescript.tsdoc-v1
+  active_commenting_profile: generic.commenting-v1
   commenting_profiles_ref: aagf/docs/spec/stacks/comment-doc-profiles.yaml

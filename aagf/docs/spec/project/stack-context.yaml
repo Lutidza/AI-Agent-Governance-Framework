@@ -1,0 +1,106 @@
+version: 1
+source: mcp
+session_id: none
+detected_at: 1970-01-01T00:00:00.000Z
+levels:
+  os:
+    - id: unknown
+      version: ""
+      confidence: 0
+      source: mcp
+      evidence:
+        - Признаки уровня 'os' не обнаружены.
+  server:
+    - id: unknown
+      version: ""
+      confidence: 0
+      source: mcp
+      evidence:
+        - Признаки уровня 'server' не обнаружены.
+  runtime:
+    - id: unknown
+      version: ""
+      confidence: 0
+      source: mcp
+      evidence:
+        - Признаки уровня 'runtime' не обнаружены.
+  languages:
+    - id: unknown
+      version: ""
+      confidence: 0
+      source: mcp
+      evidence:
+        - Признаки уровня 'languages' не обнаружены.
+  frameworks:
+    - id: unknown
+      version: ""
+      confidence: 0
+      source: mcp
+      evidence:
+        - Признаки уровня 'frameworks' не обнаружены.
+  libraries:
+    - id: unknown
+      version: ""
+      confidence: 0
+      source: mcp
+      evidence:
+        - Признаки уровня 'libraries' не обнаружены.
+  packages:
+    - id: unknown
+      version: ""
+      confidence: 0
+      source: mcp
+      evidence:
+        - Признаки уровня 'packages' не обнаружены.
+  databases:
+    - id: unknown
+      version: ""
+      confidence: 0
+      source: mcp
+      evidence:
+        - Признаки уровня 'databases' не обнаружены.
+  cache:
+    - id: unknown
+      version: ""
+      confidence: 0
+      source: mcp
+      evidence:
+        - Признаки уровня 'cache' не обнаружены.
+  messaging:
+    - id: unknown
+      version: ""
+      confidence: 0
+      source: mcp
+      evidence:
+        - Признаки уровня 'messaging' не обнаружены.
+  ci:
+    - id: unknown
+      version: ""
+      confidence: 0
+      source: mcp
+      evidence:
+        - Признаки уровня 'ci' не обнаружены.
+  deploy:
+    - id: unknown
+      version: ""
+      confidence: 0
+      source: mcp
+      evidence:
+        - Признаки уровня 'deploy' не обнаружены.
+summary:
+  primary_stack_id: unknown
+  confidence: 0
+  decision: unknown
+  unknown_levels:
+    - os
+    - server
+    - runtime
+    - languages
+    - frameworks
+    - libraries
+    - packages
+    - databases
+    - cache
+    - messaging
+    - ci
+    - deploy

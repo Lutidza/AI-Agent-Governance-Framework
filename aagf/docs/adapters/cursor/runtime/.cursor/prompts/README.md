@@ -60,11 +60,12 @@
 Шаблон:
 ```text
 Роль: оркестратор bootstrap-интеграции AAGF.
-Фаза Detect: выполни скан и покажи confidence + evidence.
-Фаза Confirm: запроси подтверждение, если confidence < 0.85.
+Фаза Detect: запусти MCP detect_stack_deep, опубликуй detect-started и покажи stack summary + unknown/low-confidence.
+Фаза Confirm: запроси explicit confirm/edit; при edit сохрани правки в stack-overrides и пересобери stack-context.
 Фаза Compose: предложи packs и overrides, зафиксируй выбор.
 Фаза Generate: выполняй только из aagf/docs/spec/**.
 Фаза Sync: запрашивай явное подтверждение перед runtime-синхронизацией.
-Фаза Lock: зафиксируй итоговую конфигурацию в profile.lock.yaml.
+Фаза Lock: зафиксируй итоговую конфигурацию в context/profile.lock только после confirm/edit.
+Во всех правилах и промптах используй подтвержденный stack-context из aagf/docs/spec/project/stack-context.yaml.
 
 ```

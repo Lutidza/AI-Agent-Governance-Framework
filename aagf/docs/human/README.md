@@ -26,6 +26,6 @@
 - Language: `ru`
 - Sections: `5`
 - Entries: `12`
-- Rules: `45`
-- IF->THEN: `28`
+- Rules: `50`
+- IF->THEN: `30`
 - Prompts: `3`

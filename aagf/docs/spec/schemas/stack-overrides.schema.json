@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aagf.dev/schemas/stack-overrides.schema.json",
+  "title": "AAGF stack overrides",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "edits"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "selected_stack_override": {
+      "type": "string"
+    },
+    "edits": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/edit"
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "$defs": {
+    "level": {
+      "type": "string",
+      "enum": [
+        "os",
+        "server",
+        "runtime",
+        "languages",
+        "frameworks",
+        "libraries",
+        "packages",
+        "databases",
+        "cache",
+        "messaging",
+        "ci",
+        "deploy"
+      ]
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "confidence",
+        "source",
+        "evidence"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "mcp",
+            "user"
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "edit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "action",
+        "item"
+      ],
+      "properties": {
+        "level": {
+          "$ref": "#/$defs/level"
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "add",
+            "replace"
+          ]
+        },
+        "item": {
+          "$ref": "#/$defs/item"
+        }
+      }
+    }
+  }
+}

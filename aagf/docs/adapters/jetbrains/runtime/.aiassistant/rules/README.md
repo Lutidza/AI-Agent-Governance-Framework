@@ -63,17 +63,21 @@
 - IF docs:check возвращает drift THEN Изменение MUST считаться незавершенным до устранения drift.
 - `AAGF-WF-BOOTSTRAP` AAGF Bootstrap Integration Workflow
 - RULE: Workflow MUST выполняться по фазам Install -> Detect -> Confirm -> Compose -> Generate -> Sync -> Lock.
-- RULE: Install MUST подключать aagf/ в проект и MUST применять root AGENTS.md только через merge-предложение без неявного overwrite.
-- RULE: Detect MUST выполнять offline-детекцию стека и контекста проекта по артефактам репозитория и MUST вычислять confidence score.
-- RULE: Confirm MUST применять пороги: confidence >= 0.85 -> auto; 0.60-0.84 -> explicit confirm; < 0.60 -> unknown profile и ручной выбор.
+- RULE: Install MUST подключать aagf/ в проект и MUST заменять root AGENTS.md install-шаблоном `aagf/docs/install/AGENTS.md` через явный dry-run/apply.
+- RULE: Detect MUST выполняться через MCP tool `detect_stack_deep` и MUST публиковать `detect-started` с `project-root`, `detector-id`, `session-id`.
+- RULE: Detect MUST формировать глубокий `stack-context` по уровням (`os/server/runtime/languages/frameworks/libraries/packages/databases/cache/messaging/ci/deploy`) с `id`, `version`, `confidence`, `evidence`, `source`.
+- RULE: Confirm MUST требовать явное действие `confirm` или `edit`; bootstrap MUST NOT продолжаться без прохождения confirm/edit gate.
+- RULE: IF выбран `edit` THEN правки MUST сохраняться в `aagf/docs/spec/project/stack-overrides.yaml` и MUST быть применены к итоговому `stack-context` перед Lock.
 - RULE: Compose MUST формировать enabled packs и overrides до фазы Generate.
 - RULE: Generate MUST собирать aagf/docs/human/** и aagf/docs/adapters/** только из aagf/docs/spec/**.
 - RULE: Sync MUST выполняться только после явного подтверждения пользователя и только через target-aware sync-процесс.
-- RULE: Lock MUST фиксировать итоговую конфигурацию проекта в aagf/docs/spec/project/profile.lock.yaml.
-- IF confidence находится в диапазоне 0.60-0.84 THEN Агент MUST остановиться на phase gate и MUST запросить явное подтверждение перед Generate/Sync.
-- IF confidence ниже 0.60 THEN Агент MUST установить статус unknown и MUST NOT выполнять auto-apply профиля.
+- RULE: Lock MUST фиксировать итоговую конфигурацию проекта в `aagf/docs/spec/project/profile.lock.yaml` и MUST записывать `context.yaml`/`profile.lock.yaml` только после confirm/edit.
+- RULE: Runtime rules/prompts/workflows MUST использовать подтвержденный `aagf/docs/spec/project/stack-context.yaml` как входной контекст.
+- IF Detect вернул unknown или low-confidence элементы THEN Агент MUST опубликовать structured summary (`stack.*`, `unknown-levels`, `low-confidence`) и MUST запросить explicit confirm/edit.
+- IF Detection action (`confirm`/`edit`) отсутствует THEN Bootstrap MUST остановиться на phase Confirm без перехода в Compose/Generate/Lock.
+- IF Специалист выбрал edit THEN Агент MUST сохранить правки в stack-overrides и MUST пересчитать итоговый stack-context до lock.
 - IF Запрошена синхронизация runtime-контуров THEN Агент MUST сначала выполнить dry-run (`docs:sync:check`) и MUST применять sync только после явного подтверждения.
-- IF Требуется изменение root AGENTS.md THEN Агент MUST сформировать diff/merge-предложение и MUST NOT перезаписывать файл автоматически.
+- IF Runtime-адаптеры не имеют подтвержденного stack-context THEN Агент MUST NOT использовать не подтвержденный профиль как active для rules/prompts/workflows.
 ### roles
 - `AAGF-ROLE-001` Orchestrator (Дирижер)
 - RULE: Orchestrator MUST определять рабочий контур и целевой workflow до старта исполнения.
@@ -99,7 +103,10 @@
 - RULE: aagf/docs/adapters/jetbrains/** MUST агрегировать нормативные правила и prompts из aagf/docs/spec/** для runtime `.aiassistant`.
 - RULE: aagf/docs/adapters/cursor/** MUST агрегировать нормативные правила и prompts из aagf/docs/spec/** для runtime `.cursor`.
 - RULE: Multi-target adapter-проекции MUST использовать только переносимые настройки без machine-specific данных.
+- RULE: Runtime rules/prompts/workflows MUST использовать подтвержденный `aagf/docs/spec/project/stack-context.yaml` как первичный входной контекст.
+- RULE: Runtime rules/prompts/workflows MUST учитывать `detection.status` и `stack_context_ref` из `context.yaml`/`profile.lock.yaml`.
 - RULE: Синхронизация в активные runtime-контуры MUST выполняться только через target-aware sync (`docs:sync`) после явного подтверждения пользователя.
 - IF Workflow spec содержит prompts THEN Prompt-блок MUST быть включен в prompts-проекции каждого поддерживаемого target.
 - IF Adapter-проекция конфликтует с source THEN Source MUST иметь приоритет, а adapter MUST быть перегенерирован.
+- IF stack-context отсутствует или имеет статус pending-confirm THEN Runtime-проекция MUST требовать confirm/edit и MUST NOT считать профиль подтвержденным.
 - IF Запрошена синхронизация в `/.aiassistant/**` или `/.cursor/**` THEN Агент MUST сначала выполнить `docs:sync:check`, показать изменения и только после подтверждения выполнять `docs:sync`.

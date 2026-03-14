@@ -75,50 +75,56 @@ entries:
     intent: Интеграция AAGF в новый или существующий проект должна выполняться как управляемый протокол с явными фазами, confirm-gates и lock-конфигурацией.
     rules:
       - Workflow MUST выполняться по фазам Install -> Detect -> Confirm -> Compose -> Generate -> Sync -> Lock.
-      - Install MUST подключать aagf/ в проект и MUST применять root AGENTS.md только через merge-предложение без неявного overwrite.
-      - Detect MUST выполнять offline-детекцию стека и контекста проекта по артефактам репозитория и MUST вычислять confidence score.
-      - "Confirm MUST применять пороги: confidence >= 0.85 -> auto; 0.60-0.84 -> explicit confirm; < 0.60 -> unknown profile и ручной выбор."
+      - Install MUST подключать aagf/ в проект и MUST заменять root AGENTS.md install-шаблоном `aagf/docs/install/AGENTS.md` через явный dry-run/apply.
+      - Detect MUST выполняться через MCP tool `detect_stack_deep` и MUST публиковать `detect-started` с `project-root`, `detector-id`, `session-id`.
+      - Detect MUST формировать глубокий `stack-context` по уровням (`os/server/runtime/languages/frameworks/libraries/packages/databases/cache/messaging/ci/deploy`) с `id`, `version`, `confidence`, `evidence`, `source`.
+      - Confirm MUST требовать явное действие `confirm` или `edit`; bootstrap MUST NOT продолжаться без прохождения confirm/edit gate.
+      - IF выбран `edit` THEN правки MUST сохраняться в `aagf/docs/spec/project/stack-overrides.yaml` и MUST быть применены к итоговому `stack-context` перед Lock.
       - Compose MUST формировать enabled packs и overrides до фазы Generate.
       - Generate MUST собирать aagf/docs/human/** и aagf/docs/adapters/** только из aagf/docs/spec/**.
       - Sync MUST выполняться только после явного подтверждения пользователя и только через target-aware sync-процесс.
-      - Lock MUST фиксировать итоговую конфигурацию проекта в aagf/docs/spec/project/profile.lock.yaml.
+      - Lock MUST фиксировать итоговую конфигурацию проекта в `aagf/docs/spec/project/profile.lock.yaml` и MUST записывать `context.yaml`/`profile.lock.yaml` только после confirm/edit.
+      - Runtime rules/prompts/workflows MUST использовать подтвержденный `aagf/docs/spec/project/stack-context.yaml` как входной контекст.
     if_then:
-      - if: confidence находится в диапазоне 0.60-0.84
-        then: Агент MUST остановиться на phase gate и MUST запросить явное подтверждение перед Generate/Sync.
-      - if: confidence ниже 0.60
-        then: Агент MUST установить статус unknown и MUST NOT выполнять auto-apply профиля.
+      - if: Detect вернул unknown или low-confidence элементы
+        then: Агент MUST опубликовать structured summary (`stack.*`, `unknown-levels`, `low-confidence`) и MUST запросить explicit confirm/edit.
+      - if: Detection action (`confirm`/`edit`) отсутствует
+        then: Bootstrap MUST остановиться на phase Confirm без перехода в Compose/Generate/Lock.
+      - if: Специалист выбрал edit
+        then: Агент MUST сохранить правки в stack-overrides и MUST пересчитать итоговый stack-context до lock.
       - if: Запрошена синхронизация runtime-контуров
         then: Агент MUST сначала выполнить dry-run (`docs:sync:check`) и MUST применять sync только после явного подтверждения.
-      - if: Требуется изменение root AGENTS.md
-        then: Агент MUST сформировать diff/merge-предложение и MUST NOT перезаписывать файл автоматически.
+      - if: Runtime-адаптеры не имеют подтвержденного stack-context
+        then: Агент MUST NOT использовать не подтвержденный профиль как active для rules/prompts/workflows.
     checks:
-      - Проверить наличие aagf/docs/spec/project/context.yaml, stack-detection.yaml, enabled-packs.yaml, overrides.yaml и profile.lock.yaml.
-      - Проверить, что detect-результат содержит evidence, confidence и decision.
+      - Проверить наличие aagf/docs/spec/project/context.yaml, stack-context.yaml, stack-overrides.yaml, stack-detection.yaml, enabled-packs.yaml, overrides.yaml и profile.lock.yaml.
+      - Проверить, что detect-результат содержит session-id, evidence, confidence, decision и stack_context_ref.
       - Проверить, что Generate выполняется только из aagf/docs/spec/** без ручных правок derived-слоев.
       - Проверить, что runtime sync прошел через confirm gate.
-      - Проверить, что lock-файл зафиксировал выбранный профиль и включенные packs.
+      - Проверить, что lock-файл зафиксировал выбранный профиль, status confirm/edit и включенные packs.
     steps:
-      - "Install: добавить aagf/ и подготовить merge-предложение для root AGENTS.md."
-      - "Detect: выполнить скан репозитория, собрать evidence и вычислить confidence."
-      - "Confirm: применить confidence-пороги и запросить подтверждение при необходимости."
+      - "Install: добавить aagf/ и заменить root AGENTS.md install-шаблоном через dry-run/apply."
+      - "Detect: запустить MCP `detect_stack_deep`, опубликовать detect-started и вывести structured summary результата."
+      - "Confirm: запросить explicit confirm/edit; при edit сохранить stack-overrides и пересчитать stack-context."
       - "Compose: выбрать packs и локальные overrides."
       - "Generate: собрать aagf/docs/human/** и aagf/docs/adapters/**."
       - "Sync: синхронизировать runtime-цели только после явного подтверждения."
-      - "Lock: зафиксировать профиль в profile.lock.yaml."
+      - "Lock: зафиксировать профиль и stack metadata в context/profile.lock только после confirm/edit."
     handoff:
-      - "Результат Detect: выбранный стек, confidence, evidence и decision."
+      - "Результат Detect: session-id, выбранный стек, confidence, evidence, decision и stack_context_ref."
       - Набор активированных packs и overrides.
       - Статус Generate/Sync и перечень измененных файлов.
-      - Состояние lock-файла и рекомендации для следующего цикла.
+      - Состояние context/profile.lock и рекомендации для следующего цикла.
     prompts:
       - id: AAGF-PROMPT-BOOTSTRAP-GUIDED
         title: Bootstrap Guided Orchestration
         objective: Оркестрировать диалог по фазам Detect/Confirm/Compose без нарушения non-destructive правил интеграции.
         template: |
           Роль: оркестратор bootstrap-интеграции AAGF.
-          Фаза Detect: выполни скан и покажи confidence + evidence.
-          Фаза Confirm: запроси подтверждение, если confidence < 0.85.
+          Фаза Detect: запусти MCP detect_stack_deep, опубликуй detect-started и покажи stack summary + unknown/low-confidence.
+          Фаза Confirm: запроси explicit confirm/edit; при edit сохрани правки в stack-overrides и пересобери stack-context.
           Фаза Compose: предложи packs и overrides, зафиксируй выбор.
           Фаза Generate: выполняй только из aagf/docs/spec/**.
           Фаза Sync: запрашивай явное подтверждение перед runtime-синхронизацией.
-          Фаза Lock: зафиксируй итоговую конфигурацию в profile.lock.yaml.
+          Фаза Lock: зафиксируй итоговую конфигурацию в context/profile.lock только после confirm/edit.
+          Во всех правилах и промптах используй подтвержденный stack-context из aagf/docs/spec/project/stack-context.yaml.

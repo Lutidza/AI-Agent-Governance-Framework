@@ -1,4 +1,6 @@
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { spawn } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
 
@@ -106,47 +108,127 @@ type CliOptions = {
   confirmSync: boolean;
   enablePacks: string[];
   disablePacks: string[];
+  detectionAction: "confirm" | "edit" | null;
+  detectSelectedStack: string;
+  detectEditPayloads: string[];
+  detectNotes: string[];
 };
 
 type DetectionDecision = "auto" | "confirm" | "unknown";
 
+type DetectionSessionStatus = "pending-confirm" | "confirmed" | "edited";
+
+type StackLevelKey =
+  | "os"
+  | "server"
+  | "runtime"
+  | "languages"
+  | "frameworks"
+  | "libraries"
+  | "packages"
+  | "databases"
+  | "cache"
+  | "messaging"
+  | "ci"
+  | "deploy";
+
+type StackLevelItem = {
+  id: string;
+  version: string;
+  confidence: number;
+  source: "mcp" | "user";
+  evidence: string[];
+};
+
 type MarkerScope = "dependencies" | "devDependencies" | "any";
 
-type StackFileMarker = {
-  path: string;
-  weight: number;
-  evidence: string;
+type StackContextSpec = {
+  version: number;
+  source: "mcp";
+  session_id: string;
+  detected_at: string;
+  levels: Record<StackLevelKey, StackLevelItem[]>;
+  summary: {
+    primary_stack_id: string;
+    confidence: number;
+    decision: DetectionDecision;
+    unknown_levels: StackLevelKey[];
+  };
 };
 
-type StackPackageMarker = {
-  dependency: string;
-  scope?: MarkerScope;
-  weight: number;
-  evidence: string;
+type StackOverrideEdit = {
+  level: StackLevelKey;
+  action: "add" | "replace";
+  item: StackLevelItem;
 };
 
-type StackCandidate = {
-  id: string;
-  title: string;
-  file_markers?: StackFileMarker[];
-  package_markers?: StackPackageMarker[];
+type StackOverridesSpec = {
+  version: number;
+  selected_stack_override?: string;
+  edits: StackOverrideEdit[];
+  notes?: string[];
 };
 
 type StackDetectionSpec = {
   version: number;
   mode?: "dry-run" | "apply";
+  detector: {
+    provider: "mcp";
+    tool: string;
+    protocol: string;
+    notify_dialog: boolean;
+  };
   thresholds: {
     auto: number;
     confirm: number;
   };
-  candidates: StackCandidate[];
-  last_result?: {
-    selected_stack: string;
-    confidence: number;
-    decision: DetectionDecision;
-    evidence: string[];
-    recommendation: string;
+  levels_required: StackLevelKey[];
+  last_session?: {
+    session_id: string;
+    status: DetectionSessionStatus;
+    started_at: string;
+    finished_at: string;
+    result: {
+      selected_stack: string;
+      confidence: number;
+      decision: DetectionDecision;
+      evidence: string[];
+      recommendation: string;
+      source: "mcp";
+      stack_context_ref: string;
+      overrides_applied: boolean;
+    };
   };
+};
+
+type DetectionSessionRecord = NonNullable<StackDetectionSpec["last_session"]>;
+
+type McpDetectStackDeepRequest = {
+  version: number;
+  protocol: string;
+  tool: string;
+  session_id: string;
+  project_root: string;
+  thresholds: StackDetectionSpec["thresholds"];
+  levels_required: StackLevelKey[];
+};
+
+type McpDetectStackDeepResponse = {
+  version: number;
+  protocol: string;
+  tool: string;
+  session_id: string;
+  source: "mcp";
+  started_at: string;
+  finished_at: string;
+  selected_stack: string;
+  confidence: number;
+  decision: DetectionDecision;
+  evidence: string[];
+  recommendation: string;
+  stack_context: StackContextSpec;
+  matched_files: string[];
+  ranked: RankedCandidate[];
 };
 
 type RankedCandidate = {
@@ -162,6 +244,14 @@ type StackDetectionOutcome = {
   decision: DetectionDecision;
   evidence: string[];
   recommendation: string;
+  source: "mcp";
+  sessionId: string;
+  startedAt: string;
+  finishedAt: string;
+  status: DetectionSessionStatus;
+  stackContext: StackContextSpec;
+  unknownLevels: StackLevelKey[];
+  overridesApplied: boolean;
   ranked: RankedCandidate[];
   matchedFiles: string[];
 };
@@ -205,6 +295,10 @@ type ProjectContextSpec = {
     confidence: number;
     decision: DetectionDecision;
     evidence: string[];
+    source: "mcp";
+    session_id: string;
+    status: DetectionSessionStatus;
+    stack_context_ref: string;
   };
   governance: {
     active_commenting_profile: string;
@@ -221,6 +315,10 @@ type ProfileLockSpec = {
     id: string;
     confidence: number;
     decision: DetectionDecision;
+    source: "mcp";
+    session_id: string;
+    status: DetectionSessionStatus;
+    stack_context_ref: string;
   };
   enabled_packs: string[];
   overrides_ref: string;
@@ -266,15 +364,21 @@ const MANIFEST_SCHEMA_PATH = path.join(KIT_ROOT, "docs/spec/schemas/docs-manifes
 const SECTION_SCHEMA_PATH = path.join(KIT_ROOT, "docs/spec/schemas/section-spec.schema.json");
 const RULE_MODULE_SCHEMA_PATH = path.join(KIT_ROOT, "docs/spec/schemas/rule-module.schema.json");
 const RULES_INDEX_SCHEMA_PATH = path.join(KIT_ROOT, "docs/spec/schemas/rules-index.schema.json");
+const STACK_CONTEXT_SCHEMA_PATH = path.join(KIT_ROOT, "docs/spec/schemas/stack-context.schema.json");
+const STACK_OVERRIDES_SCHEMA_PATH = path.join(KIT_ROOT, "docs/spec/schemas/stack-overrides.schema.json");
 const TEMPLATE_DIR = path.join(KIT_ROOT, "tools/templates");
 const PROJECT_SPEC_DIR = path.join(KIT_ROOT, "docs/spec/project");
 const PROJECT_CONTEXT_PATH = path.join(PROJECT_SPEC_DIR, "context.yaml");
 const PROJECT_STACK_DETECTION_PATH = path.join(PROJECT_SPEC_DIR, "stack-detection.yaml");
+const PROJECT_STACK_CONTEXT_PATH = path.join(PROJECT_SPEC_DIR, "stack-context.yaml");
+const PROJECT_STACK_OVERRIDES_PATH = path.join(PROJECT_SPEC_DIR, "stack-overrides.yaml");
 const PROJECT_ENABLED_PACKS_PATH = path.join(PROJECT_SPEC_DIR, "enabled-packs.yaml");
 const PROJECT_OVERRIDES_PATH = path.join(PROJECT_SPEC_DIR, "overrides.yaml");
 const PROJECT_PROFILE_LOCK_PATH = path.join(PROJECT_SPEC_DIR, "profile.lock.yaml");
+const MCP_DETECT_STACK_TOOL_PATH = path.join(KIT_ROOT, "tools/src/mcp/detect-stack-deep.ts");
 const COMMENTING_PROFILES_REF = "aagf/docs/spec/stacks/comment-doc-profiles.yaml";
 const ROOT_AGENTS_TEMPLATE_REL = "docs/install/AGENTS.md";
+const STACK_CONTEXT_REF = "aagf/docs/spec/project/stack-context.yaml";
 
 function normalizeText(input: string): string {
   return input.replace(/\r\n/g, "\n").trimEnd() + "\n";
@@ -660,7 +764,7 @@ async function applyRootAgentsInstallPlan(plan: RootAgentsInstallPlan): Promise<
 
 function printUsage(): void {
   console.log(
-    "Usage: tsx tools/src/cli.ts <validate|generate|check|test|sync|detect-stack|bootstrap> [--target <jetbrains|cursor|all>] [--project-root <path>] [--check] [--apply] [--guided] [--confirm-detection] [--sync] [--confirm-sync] [--enable-pack <id>] [--disable-pack <id>]"
+    "Usage: tsx tools/src/cli.ts <validate|generate|check|test|sync|detect-stack|bootstrap> [--target <jetbrains|cursor|all>] [--project-root <path>] [--check] [--apply] [--guided] [--confirm-detection] [--sync] [--confirm-sync] [--enable-pack <id>] [--disable-pack <id>] [--detect-action <confirm|edit>] [--detect-selected-stack <id>] [--detect-edit <json|yaml>] [--detect-note <text>]"
   );
 }
 
@@ -675,6 +779,10 @@ function parseCliOptions(argv: string[]): CliOptions {
   let confirmSync = false;
   const enablePacks: string[] = [];
   const disablePacks: string[] = [];
+  let detectionAction: "confirm" | "edit" | null = null;
+  let detectSelectedStack = "";
+  const detectEditPayloads: string[] = [];
+  const detectNotes: string[] = [];
 
   for (let index = 0; index < argv.length; index++) {
     const token = argv[index];
@@ -747,6 +855,88 @@ function parseCliOptions(argv: string[]): CliOptions {
       continue;
     }
 
+    if (token === "--detect-action") {
+      const value = argv[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("Option '--detect-action' requires a value: confirm|edit.");
+      }
+      if (value !== "confirm" && value !== "edit") {
+        throw new Error("Option '--detect-action' supports only values: confirm|edit.");
+      }
+      detectionAction = value;
+      index += 1;
+      continue;
+    }
+
+    if (token.startsWith("--detect-action=")) {
+      const value = token.slice("--detect-action=".length).trim();
+      if (!value) {
+        throw new Error("Option '--detect-action=' requires a value: confirm|edit.");
+      }
+      if (value !== "confirm" && value !== "edit") {
+        throw new Error("Option '--detect-action=' supports only values: confirm|edit.");
+      }
+      detectionAction = value;
+      continue;
+    }
+
+    if (token === "--detect-selected-stack") {
+      const value = argv[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("Option '--detect-selected-stack' requires a value.");
+      }
+      detectSelectedStack = value;
+      index += 1;
+      continue;
+    }
+
+    if (token.startsWith("--detect-selected-stack=")) {
+      const value = token.slice("--detect-selected-stack=".length).trim();
+      if (!value) {
+        throw new Error("Option '--detect-selected-stack=' requires a value.");
+      }
+      detectSelectedStack = value;
+      continue;
+    }
+
+    if (token === "--detect-edit") {
+      const value = argv[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("Option '--detect-edit' requires a JSON/YAML payload value.");
+      }
+      detectEditPayloads.push(value);
+      index += 1;
+      continue;
+    }
+
+    if (token.startsWith("--detect-edit=")) {
+      const value = token.slice("--detect-edit=".length).trim();
+      if (!value) {
+        throw new Error("Option '--detect-edit=' requires a JSON/YAML payload value.");
+      }
+      detectEditPayloads.push(value);
+      continue;
+    }
+
+    if (token === "--detect-note") {
+      const value = argv[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("Option '--detect-note' requires a value.");
+      }
+      detectNotes.push(value);
+      index += 1;
+      continue;
+    }
+
+    if (token.startsWith("--detect-note=")) {
+      const value = token.slice("--detect-note=".length).trim();
+      if (!value) {
+        throw new Error("Option '--detect-note=' requires a value.");
+      }
+      detectNotes.push(value);
+      continue;
+    }
+
     if (token === "--target") {
       const value = argv[index + 1];
       if (!value || value.startsWith("--")) {
@@ -786,7 +976,7 @@ function parseCliOptions(argv: string[]): CliOptions {
     }
 
     throw new Error(
-      `Unknown option '${token}'. Supported options: --target <id|all>, --project-root <path>, --check, --apply, --guided, --confirm-detection, --sync, --confirm-sync, --enable-pack <id>, --disable-pack <id>.`
+      `Unknown option '${token}'. Supported options: --target <id|all>, --project-root <path>, --check, --apply, --guided, --confirm-detection, --sync, --confirm-sync, --enable-pack <id>, --disable-pack <id>, --detect-action <confirm|edit>, --detect-selected-stack <id>, --detect-edit <json|yaml>, --detect-note <text>.`
     );
   }
 
@@ -800,7 +990,11 @@ function parseCliOptions(argv: string[]): CliOptions {
     sync,
     confirmSync,
     enablePacks,
-    disablePacks
+    disablePacks,
+    detectionAction,
+    detectSelectedStack,
+    detectEditPayloads,
+    detectNotes
   };
 }
 
@@ -944,53 +1138,99 @@ async function applySyncPlans(plans: SyncPlan[]): Promise<number> {
 
 async function readStackDetectionSpec(): Promise<StackDetectionSpec> {
   const fallback: StackDetectionSpec = {
-    version: 1,
+    version: 2,
     mode: "dry-run",
+    detector: {
+      provider: "mcp",
+      tool: "aagf.detect_stack_deep",
+      protocol: "aagf.mcp.v1",
+      notify_dialog: true
+    },
     thresholds: {
       auto: 0.85,
       confirm: 0.6
     },
-    candidates: [
-      {
-        id: "node-typescript",
-        title: "Node.js + TypeScript",
-        file_markers: [
-          {
-            path: "package.json",
-            weight: 0.5,
-            evidence: "Обнаружен package.json."
-          },
-          {
-            path: "tsconfig.json",
-            weight: 0.3,
-            evidence: "Обнаружен tsconfig.json."
-          }
-        ],
-        package_markers: [
-          {
-            dependency: "typescript",
-            scope: "any",
-            weight: 0.2,
-            evidence: "Обнаружена зависимость typescript."
-          }
-        ]
-      }
+    levels_required: [
+      "os",
+      "server",
+      "runtime",
+      "languages",
+      "frameworks",
+      "libraries",
+      "packages",
+      "databases",
+      "cache",
+      "messaging",
+      "ci",
+      "deploy"
     ],
-    last_result: {
-      selected_stack: "unknown",
-      confidence: 0,
-      decision: "unknown",
-      evidence: [],
-      recommendation: "manual-selection-required"
+    last_session: {
+      session_id: "none",
+      status: "pending-confirm",
+      started_at: "1970-01-01T00:00:00.000Z",
+      finished_at: "1970-01-01T00:00:00.000Z",
+      result: {
+        selected_stack: "unknown",
+        confidence: 0,
+        decision: "unknown",
+        evidence: [],
+        recommendation: "manual-selection-required",
+        source: "mcp",
+        stack_context_ref: STACK_CONTEXT_REF,
+        overrides_applied: false
+      }
     }
   };
 
   const spec = await readYamlFileOrDefault<StackDetectionSpec>(PROJECT_STACK_DETECTION_PATH, fallback);
 
-  if (spec.candidates.length === 0) {
-    throw new Error("Stack detection spec must include at least one candidate.");
+  if (spec.detector.provider !== "mcp") {
+    throw new Error("Stack detection is MCP-only: detector.provider MUST be 'mcp'.");
   }
 
+  if (!spec.detector.tool.trim()) {
+    throw new Error("Stack detection spec must declare non-empty detector.tool.");
+  }
+
+  if (!spec.detector.protocol.trim()) {
+    throw new Error("Stack detection spec must declare non-empty detector.protocol.");
+  }
+
+  if (spec.thresholds.auto < 0 || spec.thresholds.auto > 1) {
+    throw new Error("Stack detection spec threshold 'auto' MUST be in range [0..1].");
+  }
+
+  if (spec.thresholds.confirm < 0 || spec.thresholds.confirm > 1) {
+    throw new Error("Stack detection spec threshold 'confirm' MUST be in range [0..1].");
+  }
+
+  if (spec.thresholds.confirm > spec.thresholds.auto) {
+    throw new Error("Stack detection spec requires confirm <= auto.");
+  }
+
+  if (spec.levels_required.length === 0) {
+    throw new Error("Stack detection spec must include at least one required stack level.");
+  }
+
+  const uniqueLevels = new Set<StackLevelKey>(spec.levels_required);
+  if (uniqueLevels.size !== spec.levels_required.length) {
+    throw new Error("Stack detection spec contains duplicated level IDs in levels_required.");
+  }
+
+  return spec;
+}
+
+async function readStackOverridesSpec(): Promise<StackOverridesSpec> {
+  const fallback: StackOverridesSpec = {
+    version: 1,
+    edits: [],
+    notes: [
+      "Правки стека от специалиста фиксируются здесь после диалогового confirm/edit."
+    ]
+  };
+
+  const spec = await readYamlFileOrDefault<StackOverridesSpec>(PROJECT_STACK_OVERRIDES_PATH, fallback);
+  await validateAgainstSchema(STACK_OVERRIDES_SCHEMA_PATH, spec, PROJECT_STACK_OVERRIDES_PATH);
   return spec;
 }
 
@@ -1012,48 +1252,610 @@ async function readEnabledPacksSpec(): Promise<EnabledPacksSpec> {
   return readYamlFileOrDefault<EnabledPacksSpec>(PROJECT_ENABLED_PACKS_PATH, fallback);
 }
 
-async function readPackageJsonMaybe(projectRoot: string): Promise<Record<string, unknown> | null> {
-  const packageJsonPath = path.join(projectRoot, "package.json");
-  if (!(await pathExists(packageJsonPath))) {
-    return null;
+function uniqueStackItems(items: StackLevelItem[]): StackLevelItem[] {
+  const seen = new Set<string>();
+  const result: StackLevelItem[] = [];
+
+  for (const item of items) {
+    const key = `${item.id}:${item.version}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    result.push(item);
   }
 
-  const raw = await readFile(packageJsonPath, "utf8");
-  return JSON.parse(raw) as Record<string, unknown>;
+  return result;
 }
 
-function getDependencyMap(
-  packageJson: Record<string, unknown>,
-  key: "dependencies" | "devDependencies"
-): Record<string, string> {
-  const value = packageJson[key];
-  if (!value || typeof value !== "object") {
-    return {};
+function levelConfidence(items: StackLevelItem[]): number {
+  if (items.length === 0) {
+    return 0;
   }
-  return value as Record<string, string>;
+  return items.reduce((max, item) => Math.max(max, item.confidence), 0);
 }
 
-function hasPackageDependency(
-  packageJson: Record<string, unknown> | null,
-  dependency: string,
-  scope: MarkerScope
-): boolean {
-  if (!packageJson) {
-    return false;
+function guessPrimaryStackId(levels: Record<StackLevelKey, StackLevelItem[]>): string {
+  const runtimeIds = new Set(levels.runtime.map((item) => item.id));
+  const languageIds = new Set(levels.languages.map((item) => item.id));
+
+  if (runtimeIds.has("node") && languageIds.has("typescript")) {
+    return "node-typescript";
+  }
+  if (runtimeIds.has("node")) {
+    return "node-javascript";
+  }
+  if (runtimeIds.has("python")) {
+    return "python";
+  }
+  if (runtimeIds.has("go")) {
+    return "go";
+  }
+  if (runtimeIds.has("rust")) {
+    return "rust";
+  }
+  if (runtimeIds.has("php")) {
+    return "php";
+  }
+  if (runtimeIds.has("dart")) {
+    return "dart";
   }
 
-  const dependencies = getDependencyMap(packageJson, "dependencies");
-  const devDependencies = getDependencyMap(packageJson, "devDependencies");
+  return "unknown";
+}
 
-  if (scope === "dependencies") {
-    return dependency in dependencies;
+function summarizeStackConfidence(
+  levels: Record<StackLevelKey, StackLevelItem[]>,
+  requiredLevels: StackLevelKey[]
+): { confidence: number; unknownLevels: StackLevelKey[] } {
+  const unknownLevels: StackLevelKey[] = [];
+  let sum = 0;
+
+  for (const level of requiredLevels) {
+    const items = levels[level];
+    const confidence = levelConfidence(items);
+    sum += confidence;
+
+    if (items.length === 0 || items.every((item) => item.id === "unknown")) {
+      unknownLevels.push(level);
+    }
   }
 
-  if (scope === "devDependencies") {
-    return dependency in devDependencies;
+  const normalized = requiredLevels.length === 0 ? 0 : sum / requiredLevels.length;
+  return {
+    confidence: clampConfidence(normalized),
+    unknownLevels
+  };
+}
+
+function asRecord(value: unknown, label: string): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${label} MUST be an object.`);
+  }
+  return value as Record<string, unknown>;
+}
+
+function asString(value: unknown, label: string): string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`${label} MUST be a non-empty string.`);
+  }
+  return value;
+}
+
+function asNumber(value: unknown, label: string): number {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    throw new Error(`${label} MUST be a number.`);
+  }
+  return value;
+}
+
+function asStringArray(value: unknown, label: string): string[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} MUST be an array of strings.`);
+  }
+  return value.map((entry, index) => asString(entry, `${label}[${index}]`));
+}
+
+function asDecision(value: unknown, label: string): DetectionDecision {
+  const normalized = asString(value, label);
+  if (normalized === "auto" || normalized === "confirm" || normalized === "unknown") {
+    return normalized;
+  }
+  throw new Error(`${label} MUST be one of: auto|confirm|unknown.`);
+}
+
+function asStackLevels(value: unknown, label: string): StackLevelKey[] {
+  const levels = asStringArray(value, label);
+  const normalized: StackLevelKey[] = [];
+
+  for (let index = 0; index < levels.length; index++) {
+    const level = levels[index];
+    if (
+      level !== "os" &&
+      level !== "server" &&
+      level !== "runtime" &&
+      level !== "languages" &&
+      level !== "frameworks" &&
+      level !== "libraries" &&
+      level !== "packages" &&
+      level !== "databases" &&
+      level !== "cache" &&
+      level !== "messaging" &&
+      level !== "ci" &&
+      level !== "deploy"
+    ) {
+      throw new Error(`${label}[${index}] has unsupported stack level '${level}'.`);
+    }
+    normalized.push(level);
   }
 
-  return dependency in dependencies || dependency in devDependencies;
+  return normalized;
+}
+
+function parseStackOverrideEditFromCliPayload(
+  rawPayload: string,
+  index: number
+): StackOverrideEdit {
+  let parsedPayload: unknown;
+
+  try {
+    parsedPayload = JSON.parse(rawPayload) as unknown;
+  } catch {
+    try {
+      parsedPayload = YAML.parse(rawPayload) as unknown;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`--detect-edit[${index}] contains invalid JSON/YAML payload: ${message}`);
+    }
+  }
+
+  const payload = asRecord(parsedPayload, `--detect-edit[${index}]`);
+  const level = asStackLevels(
+    [asString(payload.level, `--detect-edit[${index}].level`)],
+    `--detect-edit[${index}].level`
+  )[0];
+  const actionRaw = asString(payload.action, `--detect-edit[${index}].action`);
+
+  if (actionRaw !== "add" && actionRaw !== "replace") {
+    throw new Error(
+      `--detect-edit[${index}].action supports only values: add|replace.`
+    );
+  }
+
+  const itemPayload = asRecord(payload.item, `--detect-edit[${index}].item`);
+  const evidenceInput = itemPayload.evidence === undefined
+    ? [`Правка стека внесена через --detect-edit[${index}].`]
+    : asStringArray(itemPayload.evidence, `--detect-edit[${index}].item.evidence`);
+
+  if (evidenceInput.length === 0) {
+    throw new Error(`--detect-edit[${index}].item.evidence MUST contain at least one item.`);
+  }
+
+  const versionInput = itemPayload.version === undefined
+    ? ""
+    : asString(itemPayload.version, `--detect-edit[${index}].item.version`);
+  const confidenceInput = itemPayload.confidence === undefined
+    ? 1
+    : asNumber(itemPayload.confidence, `--detect-edit[${index}].item.confidence`);
+
+  return {
+    level,
+    action: actionRaw,
+    item: {
+      id: asString(itemPayload.id, `--detect-edit[${index}].item.id`),
+      version: versionInput,
+      confidence: clampConfidence(confidenceInput),
+      source: "user",
+      evidence: evidenceInput
+    }
+  };
+}
+
+async function resolveDialogOverridesFromCliOptions(
+  cliOptions: CliOptions
+): Promise<{
+  action: "confirm" | "edit" | null;
+  overrides: StackOverridesSpec | null;
+}> {
+  const hasEditInput =
+    cliOptions.detectEditPayloads.length > 0 ||
+    cliOptions.detectSelectedStack.trim().length > 0 ||
+    cliOptions.detectNotes.length > 0;
+  let action = cliOptions.detectionAction;
+
+  if (!action && hasEditInput) {
+    action = "edit";
+  }
+
+  if (action === "confirm" && hasEditInput) {
+    throw new Error(
+      "Option '--detect-action confirm' conflicts with edit payloads. Remove --detect-edit/--detect-selected-stack/--detect-note or switch to '--detect-action edit'."
+    );
+  }
+
+  if (action !== "edit") {
+    return {
+      action,
+      overrides: null
+    };
+  }
+
+  const selectedStack = cliOptions.detectSelectedStack.trim();
+  const edits = cliOptions.detectEditPayloads.map((payload, index) =>
+    parseStackOverrideEditFromCliPayload(payload, index)
+  );
+  if (!selectedStack && edits.length === 0) {
+    throw new Error(
+      "Detection action 'edit' requires either --detect-selected-stack or at least one --detect-edit payload."
+    );
+  }
+
+  const overrides: StackOverridesSpec = {
+    version: 1,
+    edits
+  };
+
+  if (selectedStack) {
+    overrides.selected_stack_override = selectedStack;
+  }
+  if (cliOptions.detectNotes.length > 0) {
+    overrides.notes = cliOptions.detectNotes;
+  }
+
+  await validateAgainstSchema(STACK_OVERRIDES_SCHEMA_PATH, overrides, "cli.detect-overrides");
+
+  return {
+    action,
+    overrides
+  };
+}
+
+async function resolveDetectionDialogState(
+  cliOptions: CliOptions,
+  applyChanges: boolean,
+  commandLabel: "detect-stack" | "bootstrap"
+): Promise<{
+  action: "confirm" | "edit" | null;
+  overrides: StackOverridesSpec;
+  hasEdits: boolean;
+}> {
+  const storedOverrides = await readStackOverridesSpec();
+  const dialogOverrides = await resolveDialogOverridesFromCliOptions(cliOptions);
+  let activeOverrides = storedOverrides;
+
+  if (dialogOverrides.overrides) {
+    activeOverrides = dialogOverrides.overrides;
+
+    if (applyChanges) {
+      await writeYamlFile(PROJECT_STACK_OVERRIDES_PATH, activeOverrides);
+      console.log(
+        `${commandLabel}: saved dialog edits to '${path.relative(KIT_ROOT, PROJECT_STACK_OVERRIDES_PATH)}'.`
+      );
+    } else {
+      console.log(
+        `${commandLabel}: dry-run -> would save dialog edits to '${path.relative(KIT_ROOT, PROJECT_STACK_OVERRIDES_PATH)}'.`
+      );
+    }
+  }
+
+  const hasEdits = hasStackOverrides(activeOverrides);
+  if (dialogOverrides.action === "confirm" && hasEdits) {
+    throw new Error(
+      "Detection action 'confirm' conflicts with non-empty stack-overrides. Remove overrides or use edit."
+    );
+  }
+
+  if (dialogOverrides.action === "edit" && !hasEdits) {
+    throw new Error(
+      "Detection action 'edit' requires non-empty overrides after merge."
+    );
+  }
+
+  return {
+    action: dialogOverrides.action,
+    overrides: activeOverrides,
+    hasEdits
+  };
+}
+
+function parseMcpDetectStackDeepResponse(
+  payload: unknown,
+  expected: {
+    protocol: string;
+    tool: string;
+    sessionId: string;
+  }
+): McpDetectStackDeepResponse {
+  const raw = asRecord(payload, "mcp.response");
+  const stackContextRaw = asRecord(raw.stack_context, "mcp.response.stack_context");
+  const summaryRaw = asRecord(stackContextRaw.summary, "mcp.response.stack_context.summary");
+
+  const response: McpDetectStackDeepResponse = {
+    version: asNumber(raw.version, "mcp.response.version"),
+    protocol: asString(raw.protocol, "mcp.response.protocol"),
+    tool: asString(raw.tool, "mcp.response.tool"),
+    session_id: asString(raw.session_id, "mcp.response.session_id"),
+    source: asString(raw.source, "mcp.response.source") as "mcp",
+    started_at: asString(raw.started_at, "mcp.response.started_at"),
+    finished_at: asString(raw.finished_at, "mcp.response.finished_at"),
+    selected_stack: asString(raw.selected_stack, "mcp.response.selected_stack"),
+    confidence: clampConfidence(asNumber(raw.confidence, "mcp.response.confidence")),
+    decision: asDecision(raw.decision, "mcp.response.decision"),
+    evidence: asStringArray(raw.evidence, "mcp.response.evidence"),
+    recommendation: asString(raw.recommendation, "mcp.response.recommendation"),
+    stack_context: stackContextRaw as StackContextSpec,
+    matched_files: asStringArray(raw.matched_files, "mcp.response.matched_files"),
+    ranked: (() => {
+      if (!Array.isArray(raw.ranked)) {
+        throw new Error("mcp.response.ranked MUST be an array.");
+      }
+
+      return raw.ranked.map((item, index) => {
+        const rankedRaw = asRecord(item, `mcp.response.ranked[${index}]`);
+        return {
+          id: asString(rankedRaw.id, `mcp.response.ranked[${index}].id`),
+          title: asString(rankedRaw.title, `mcp.response.ranked[${index}].title`),
+          confidence: clampConfidence(
+            asNumber(rankedRaw.confidence, `mcp.response.ranked[${index}].confidence`)
+          ),
+          evidence: asStringArray(rankedRaw.evidence, `mcp.response.ranked[${index}].evidence`)
+        };
+      });
+    })()
+  };
+
+  if (response.source !== "mcp") {
+    throw new Error("mcp.response.source MUST be 'mcp'.");
+  }
+
+  if (response.protocol !== expected.protocol) {
+    throw new Error(
+      `MCP protocol mismatch: response='${response.protocol}', expected='${expected.protocol}'.`
+    );
+  }
+
+  if (response.tool !== expected.tool) {
+    throw new Error(`MCP tool mismatch: response='${response.tool}', expected='${expected.tool}'.`);
+  }
+
+  if (response.session_id !== expected.sessionId) {
+    throw new Error(
+      `MCP session mismatch: response='${response.session_id}', expected='${expected.sessionId}'.`
+    );
+  }
+
+  const summaryDecision = asDecision(
+    summaryRaw.decision,
+    "mcp.response.stack_context.summary.decision"
+  );
+  if (summaryDecision !== response.decision) {
+    throw new Error(
+      `MCP decision mismatch: stack-context='${summaryDecision}', response='${response.decision}'.`
+    );
+  }
+
+  const summaryConfidence = clampConfidence(
+    asNumber(summaryRaw.confidence, "mcp.response.stack_context.summary.confidence")
+  );
+  if (summaryConfidence !== response.confidence) {
+    throw new Error(
+      `MCP confidence mismatch: stack-context=${summaryConfidence}, response=${response.confidence}.`
+    );
+  }
+
+  return response;
+}
+
+async function invokeMcpDetectStackDeep(
+  request: McpDetectStackDeepRequest
+): Promise<McpDetectStackDeepResponse> {
+  return await new Promise<McpDetectStackDeepResponse>((resolve, reject) => {
+    const child = spawn(
+      process.execPath,
+      ["--import", "tsx", MCP_DETECT_STACK_TOOL_PATH],
+      {
+        cwd: KIT_ROOT,
+        stdio: ["pipe", "pipe", "pipe"]
+      }
+    );
+
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+
+    const fail = (error: Error): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      reject(error);
+    };
+
+    const succeed = (response: McpDetectStackDeepResponse): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(response);
+    };
+
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+
+    child.stdout.on("data", (chunk: string) => {
+      stdout += chunk;
+    });
+
+    child.stderr.on("data", (chunk: string) => {
+      stderr += chunk;
+    });
+
+    child.on("error", (error: Error) => {
+      fail(
+        new Error(
+          `MCP transport failed to start tool '${request.tool}' via '${MCP_DETECT_STACK_TOOL_PATH}': ${error.message}`
+        )
+      );
+    });
+
+    child.stdin.on("error", (error: Error) => {
+      fail(
+        new Error(
+          `MCP transport stdin failure for tool '${request.tool}': ${error.message}`
+        )
+      );
+    });
+
+    child.on("close", (exitCode: number | null) => {
+      if (exitCode !== 0) {
+        fail(
+          new Error(
+            `MCP tool '${request.tool}' exited with code ${exitCode ?? "null"}.\n${stderr.trim() || "No stderr output."}`
+          )
+        );
+        return;
+      }
+
+      const rawOutput = stdout.trim();
+      if (!rawOutput) {
+        fail(new Error(`MCP tool '${request.tool}' returned empty response payload.`));
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(rawOutput) as unknown;
+        const response = parseMcpDetectStackDeepResponse(parsed, {
+          protocol: request.protocol,
+          tool: request.tool,
+          sessionId: request.session_id
+        });
+        succeed(response);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        fail(
+          new Error(
+            `MCP tool '${request.tool}' returned invalid JSON response: ${message}\nRaw output:\n${rawOutput}`
+          )
+        );
+      }
+    });
+
+    child.stdin.end(JSON.stringify(request));
+  });
+}
+
+async function runMcpDeepDetection(
+  spec: StackDetectionSpec,
+  projectRoot: string,
+  sessionId: string
+): Promise<StackDetectionOutcome> {
+  const request: McpDetectStackDeepRequest = {
+    version: 1,
+    protocol: spec.detector.protocol,
+    tool: spec.detector.tool,
+    session_id: sessionId,
+    project_root: projectRoot,
+    thresholds: spec.thresholds,
+    levels_required: spec.levels_required
+  };
+  const response = await invokeMcpDetectStackDeep(request);
+  const unknownLevels = asStackLevels(
+    asRecord(response.stack_context.summary, "mcp.response.stack_context.summary").unknown_levels,
+    "mcp.response.stack_context.summary.unknown_levels"
+  );
+
+  return {
+    selectedStack: response.selected_stack,
+    confidence: response.confidence,
+    decision: response.decision,
+    evidence: response.evidence,
+    recommendation: response.recommendation,
+    source: "mcp",
+    sessionId: response.session_id,
+    startedAt: response.started_at,
+    finishedAt: response.finished_at,
+    status: "pending-confirm",
+    stackContext: response.stack_context,
+    unknownLevels,
+    overridesApplied: false,
+    ranked: response.ranked,
+    matchedFiles: response.matched_files
+  };
+}
+
+function hasStackOverrides(overrides: StackOverridesSpec): boolean {
+  return Boolean(overrides.selected_stack_override) || overrides.edits.length > 0;
+}
+
+function applyStackOverrides(
+  outcome: StackDetectionOutcome,
+  overrides: StackOverridesSpec,
+  thresholds: StackDetectionSpec["thresholds"],
+  requiredLevels: StackLevelKey[]
+): StackDetectionOutcome {
+  if (!hasStackOverrides(overrides)) {
+    return outcome;
+  }
+
+  const context = structuredClone(outcome.stackContext);
+
+  for (const edit of overrides.edits) {
+    const normalizedItem: StackLevelItem = {
+      ...edit.item,
+      source: "user",
+      confidence: clampConfidence(edit.item.confidence || 1)
+    };
+
+    if (edit.action === "replace") {
+      context.levels[edit.level] = [normalizedItem];
+      continue;
+    }
+
+    context.levels[edit.level] = uniqueStackItems([...context.levels[edit.level], normalizedItem]);
+  }
+
+  const summary = summarizeStackConfidence(context.levels, requiredLevels);
+  const selectedStack = overrides.selected_stack_override?.trim() || guessPrimaryStackId(context.levels);
+  const decision = toDecision(summary.confidence, thresholds);
+
+  context.summary = {
+    primary_stack_id: selectedStack,
+    confidence: summary.confidence,
+    decision,
+    unknown_levels: summary.unknownLevels
+  };
+
+  return {
+    ...outcome,
+    selectedStack: selectedStack || "unknown",
+    confidence: summary.confidence,
+    decision,
+    recommendation: toRecommendation(decision),
+    stackContext: context,
+    unknownLevels: summary.unknownLevels,
+    status: "edited",
+    overridesApplied: true,
+    evidence: [...outcome.evidence, "Результат дополнен специалистом через stack-overrides."]
+  };
+}
+
+function buildDetectionSessionRecord(outcome: StackDetectionOutcome): DetectionSessionRecord {
+  return {
+    session_id: outcome.sessionId,
+    status: outcome.status,
+    started_at: outcome.startedAt,
+    finished_at: outcome.finishedAt,
+    result: {
+      selected_stack: outcome.selectedStack,
+      confidence: outcome.confidence,
+      decision: outcome.decision,
+      evidence: outcome.evidence,
+      recommendation: outcome.recommendation,
+      source: "mcp",
+      stack_context_ref: STACK_CONTEXT_REF,
+      overrides_applied: outcome.overridesApplied
+    }
+  };
 }
 
 function toDecision(confidence: number, thresholds: StackDetectionSpec["thresholds"]): DetectionDecision {
@@ -1076,60 +1878,26 @@ function toRecommendation(decision: DetectionDecision): string {
   return "manual-selection-required";
 }
 
-async function detectStack(spec: StackDetectionSpec, projectRoot: string): Promise<StackDetectionOutcome> {
-  const packageJson = await readPackageJsonMaybe(projectRoot);
-  const ranked: RankedCandidate[] = [];
-  const matchedFiles = new Set<string>();
+function printDetectStarted(
+  spec: StackDetectionSpec,
+  projectRoot: string,
+  sessionId: string
+): void {
+  console.log(
+    `docs-build: dialog event=detect-started session-id='${sessionId}' source='mcp' detector-id='${spec.detector.tool}' protocol='${spec.detector.protocol}' project-root='${projectRoot}'.`
+  );
+}
 
-  for (const candidate of spec.candidates) {
-    let score = 0;
-    const evidence: string[] = [];
+async function assertStackContextSchema(payload: StackContextSpec, label: string): Promise<void> {
+  await validateAgainstSchema(STACK_CONTEXT_SCHEMA_PATH, payload, label);
+}
 
-    for (const marker of candidate.file_markers ?? []) {
-      const markerPath = path.join(projectRoot, marker.path);
-      if (await pathExists(markerPath)) {
-        score += marker.weight;
-        evidence.push(marker.evidence);
-        matchedFiles.add(marker.path);
-      }
-    }
-
-    for (const marker of candidate.package_markers ?? []) {
-      const scope = marker.scope ?? "any";
-      if (hasPackageDependency(packageJson, marker.dependency, scope)) {
-        score += marker.weight;
-        evidence.push(marker.evidence);
-      }
-    }
-
-    ranked.push({
-      id: candidate.id,
-      title: candidate.title,
-      confidence: clampConfidence(score),
-      evidence
-    });
-  }
-
-  ranked.sort((left, right) => {
-    if (right.confidence !== left.confidence) {
-      return right.confidence - left.confidence;
-    }
-    return left.id.localeCompare(right.id);
-  });
-
-  const leader = ranked[0];
-  const confidence = leader ? leader.confidence : 0;
-  const decision = toDecision(confidence, spec.thresholds);
-
-  return {
-    selectedStack: decision === "unknown" ? "unknown" : leader.id,
-    confidence,
-    decision,
-    evidence: leader ? leader.evidence : [],
-    recommendation: toRecommendation(decision),
-    ranked,
-    matchedFiles: [...matchedFiles].sort((left, right) => left.localeCompare(right))
-  };
+async function detectStack(
+  spec: StackDetectionSpec,
+  projectRoot: string,
+  sessionId: string
+): Promise<StackDetectionOutcome> {
+  return runMcpDeepDetection(spec, projectRoot, sessionId);
 }
 
 function resolveEnabledPacks(
@@ -1222,6 +1990,9 @@ function buildProjectContext(outcome: StackDetectionOutcome, projectRoot: string
   const projectRootValue = ".";
   const projectId = outcome.selectedStack === "unknown" ? "manual-profile" : outcome.selectedStack;
   const activeCommentingProfile = resolveCommentingProfile(outcome.selectedStack);
+  const languageIds = outcome.stackContext.levels.languages
+    .filter((item) => item.id !== "unknown")
+    .map((item) => item.id);
 
   return {
     version: 1,
@@ -1238,7 +2009,7 @@ function buildProjectContext(outcome: StackDetectionOutcome, projectRoot: string
     facts: {
       files_present: outcome.matchedFiles,
       package_managers: inferPackageManagers(outcome.matchedFiles),
-      languages: inferLanguages(outcome.selectedStack),
+      languages: languageIds.length > 0 ? languageIds : inferLanguages(outcome.selectedStack),
       runtimes: {
         jetbrains: ".aiassistant",
         cursor: ".cursor"
@@ -1248,7 +2019,11 @@ function buildProjectContext(outcome: StackDetectionOutcome, projectRoot: string
       selected_stack: outcome.selectedStack,
       confidence: outcome.confidence,
       decision: outcome.decision,
-      evidence: outcome.evidence
+      evidence: outcome.evidence,
+      source: "mcp",
+      session_id: outcome.sessionId,
+      status: outcome.status,
+      stack_context_ref: STACK_CONTEXT_REF
     },
     governance: {
       active_commenting_profile: activeCommentingProfile,
@@ -1265,7 +2040,7 @@ function buildProfileLock(
   outcome: StackDetectionOutcome,
   packs: EnabledPackEntry[],
   targets: GeneratorTarget[],
-  confirmDetection: boolean
+  confirmed: boolean
 ): ProfileLockSpec {
   const activeCommentingProfile = resolveCommentingProfile(outcome.selectedStack);
 
@@ -1276,7 +2051,11 @@ function buildProfileLock(
     detected_stack: {
       id: outcome.selectedStack,
       confidence: outcome.confidence,
-      decision: outcome.decision
+      decision: outcome.decision,
+      source: "mcp",
+      session_id: outcome.sessionId,
+      status: outcome.status,
+      stack_context_ref: STACK_CONTEXT_REF
     },
     enabled_packs: packs.filter((pack) => pack.enabled).map((pack) => pack.id),
     overrides_ref: "aagf/docs/spec/project/overrides.yaml",
@@ -1284,7 +2063,7 @@ function buildProfileLock(
     root_agents: {
       mode: "replace",
       overwrite: true,
-      confirmed: confirmDetection
+      confirmed
     },
     governance: {
       active_commenting_profile: activeCommentingProfile,
@@ -1293,9 +2072,66 @@ function buildProfileLock(
   };
 }
 
-function printDetectionOutcome(outcome: StackDetectionOutcome): void {
+function formatLevelItems(items: StackLevelItem[]): string {
+  return items
+    .filter((item) => item.id !== "unknown")
+    .map((item) => (item.version ? `${item.id}@${item.version}` : item.id))
+    .join(", ");
+}
+
+function printDetectionDialogSummary(outcome: StackDetectionOutcome): void {
   console.log(
-    `docs-build: detect-stack selected='${outcome.selectedStack}' confidence=${outcome.confidence.toFixed(2)} decision=${outcome.decision}`
+    `docs-build: dialog event=detect-result session-id='${outcome.sessionId}' source='mcp' selected='${outcome.selectedStack}' confidence=${outcome.confidence.toFixed(2)} decision=${outcome.decision}.`
+  );
+
+  const orderedLevels: StackLevelKey[] = [
+    "os",
+    "server",
+    "runtime",
+    "languages",
+    "frameworks",
+    "libraries",
+    "packages",
+    "databases",
+    "cache",
+    "messaging",
+    "ci",
+    "deploy"
+  ];
+  const lowConfidence: string[] = [];
+
+  for (const level of orderedLevels) {
+    const value = formatLevelItems(outcome.stackContext.levels[level]);
+    if (value) {
+      console.log(`docs-build: dialog stack.${level}=${value}`);
+    } else {
+      console.log(`docs-build: dialog stack.${level}=unknown`);
+    }
+
+    for (const item of outcome.stackContext.levels[level]) {
+      if (item.id === "unknown") {
+        continue;
+      }
+      if (item.confidence < 0.6) {
+        const versionPart = item.version ? `@${item.version}` : "";
+        lowConfidence.push(`${level}:${item.id}${versionPart}:${item.confidence.toFixed(2)}`);
+      }
+    }
+  }
+
+  if (outcome.unknownLevels.length > 0) {
+    console.log(`docs-build: dialog unknown-levels=${outcome.unknownLevels.join(",")}`);
+  }
+
+  if (lowConfidence.length > 0) {
+    console.log(`docs-build: dialog low-confidence=${lowConfidence.join(",")}`);
+  }
+}
+
+function printDetectionOutcome(outcome: StackDetectionOutcome): void {
+  printDetectionDialogSummary(outcome);
+  console.log(
+    `docs-build: detect-stack source='mcp' selected='${outcome.selectedStack}' confidence=${outcome.confidence.toFixed(2)} decision=${outcome.decision} status='${outcome.status}'`
   );
 
   if (outcome.evidence.length > 0) {
@@ -1316,13 +2152,7 @@ function withDetectionResult(
   return {
     ...spec,
     mode,
-    last_result: {
-      selected_stack: outcome.selectedStack,
-      confidence: outcome.confidence,
-      decision: outcome.decision,
-      evidence: outcome.evidence,
-      recommendation: outcome.recommendation
-    }
+    last_session: buildDetectionSessionRecord(outcome)
   };
 }
 
@@ -1331,13 +2161,47 @@ async function runDetectStackCommand(cliOptions: CliOptions): Promise<void> {
     throw new Error("Option '--check' is not supported with command 'detect-stack'.");
   }
 
+  if (cliOptions.confirmDetection) {
+    throw new Error("Option '--confirm-detection' is supported only with command 'bootstrap'.");
+  }
+
   const projectRoot = resolveProjectRoot(cliOptions.projectRoot);
   const spec = await readStackDetectionSpec();
-  const outcome = await detectStack(spec, projectRoot);
+  const dialogState = await resolveDetectionDialogState(
+    cliOptions,
+    cliOptions.apply,
+    "detect-stack"
+  );
+  const sessionId = randomUUID();
+  printDetectStarted(spec, projectRoot, sessionId);
+
+  let outcome = await detectStack(spec, projectRoot, sessionId);
+  if (dialogState.hasEdits) {
+    outcome = applyStackOverrides(
+      outcome,
+      dialogState.overrides,
+      spec.thresholds,
+      spec.levels_required
+    );
+  } else if (dialogState.action === "confirm") {
+    outcome = {
+      ...outcome,
+      status: "confirmed"
+    };
+  }
+  await assertStackContextSchema(outcome.stackContext, PROJECT_STACK_CONTEXT_PATH);
+
   printDetectionOutcome(outcome);
   console.log(
     `docs-build: project-root='${projectRoot}', root AGENTS.md strategy=replace-from-template ('${ROOT_AGENTS_TEMPLATE_REL}').`
   );
+  if (dialogState.action === null) {
+    console.log(
+      "docs-build: dialog action-required='confirm-or-edit' (подтвердите стек или внесите правки в stack-overrides.yaml)."
+    );
+  } else {
+    console.log(`docs-build: dialog action='${dialogState.action}' accepted.`);
+  }
 
   if (!cliOptions.apply) {
     console.log("docs-build: detect-stack finished in dry-run mode. No files were changed.");
@@ -1347,11 +2211,12 @@ async function runDetectStackCommand(cliOptions: CliOptions): Promise<void> {
   const updatedSpec = withDetectionResult(spec, outcome, "apply");
   const context = buildProjectContext(outcome, projectRoot);
 
+  await writeYamlFile(PROJECT_STACK_CONTEXT_PATH, outcome.stackContext);
   await writeYamlFile(PROJECT_STACK_DETECTION_PATH, updatedSpec);
   await writeYamlFile(PROJECT_CONTEXT_PATH, context);
 
   console.log(
-    `docs-build: detect-stack applied updates to '${path.relative(KIT_ROOT, PROJECT_STACK_DETECTION_PATH)}' and '${path.relative(KIT_ROOT, PROJECT_CONTEXT_PATH)}'.`
+    `docs-build: detect-stack applied updates to '${path.relative(KIT_ROOT, PROJECT_STACK_CONTEXT_PATH)}', '${path.relative(KIT_ROOT, PROJECT_STACK_DETECTION_PATH)}' and '${path.relative(KIT_ROOT, PROJECT_CONTEXT_PATH)}'.`
   );
 }
 
@@ -1398,20 +2263,56 @@ async function runBootstrapCommand(
   }
 
   const stackSpec = await readStackDetectionSpec();
-  const detection = await detectStack(stackSpec, projectRoot);
+  const dialogState = await resolveDetectionDialogState(
+    cliOptions,
+    !dryRun,
+    "bootstrap"
+  );
+  const sessionId = randomUUID();
+  printDetectStarted(stackSpec, projectRoot, sessionId);
+  let detection = await detectStack(stackSpec, projectRoot, sessionId);
   console.log("phase Detect:");
   printDetectionOutcome(detection);
 
-  const confirmRequired = detection.decision !== "auto";
-  if (confirmRequired && !cliOptions.confirmDetection) {
+  if (dialogState.hasEdits) {
+    detection = applyStackOverrides(
+      detection,
+      dialogState.overrides,
+      stackSpec.thresholds,
+      stackSpec.levels_required
+    );
+    console.log("phase Detect: stack-overrides applied from 'docs/spec/project/stack-overrides.yaml'.");
+  }
+  await assertStackContextSchema(detection.stackContext, PROJECT_STACK_CONTEXT_PATH);
+
+  const confirmByAction = dialogState.action === "confirm";
+  const editByAction = dialogState.action === "edit";
+  if (dialogState.action === null) {
     console.log(
-      `phase Confirm: confirmation required for decision='${detection.decision}'. Re-run with --confirm-detection to continue.`
+      "docs-build: dialog action-required='confirm-or-edit' (подтвердите стек --confirm-detection|--detect-action confirm или внесите правки через --detect-action edit + --detect-edit)."
+    );
+  } else {
+    console.log(`docs-build: dialog action='${dialogState.action}' accepted.`);
+  }
+
+  const confirmSatisfied = cliOptions.confirmDetection || confirmByAction || dialogState.hasEdits;
+  if (!confirmSatisfied) {
+    console.log(
+      "phase Confirm: explicit confirmation or stack edits are required. Re-run with --confirm-detection or provide --detect-action confirm|edit."
     );
     console.log("docs-build: bootstrap stopped at Confirm gate.");
     return;
   }
 
-  console.log("phase Confirm: passed.");
+  if (!dialogState.hasEdits && (cliOptions.confirmDetection || confirmByAction)) {
+    detection = {
+      ...detection,
+      status: "confirmed"
+    };
+  }
+
+  const confirmMode = dialogState.hasEdits || editByAction ? "edit" : "confirm";
+  console.log(`phase Confirm: passed (mode='${confirmMode}').`);
 
   const packsSpec = await readEnabledPacksSpec();
   const resolvedPacks = resolveEnabledPacks(packsSpec, cliOptions.enablePacks, cliOptions.disablePacks);
@@ -1454,16 +2355,17 @@ async function runBootstrapCommand(
   }
 
   const context = buildProjectContext(detection, projectRoot);
-  const lock = buildProfileLock(detection, resolvedPacks, targets, cliOptions.confirmDetection);
+  const lock = buildProfileLock(detection, resolvedPacks, targets, confirmSatisfied);
   const updatedDetectionSpec = withDetectionResult(stackSpec, detection, dryRun ? "dry-run" : "apply");
 
   if (dryRun) {
     console.log(
-      `phase Lock: dry-run -> would update '${path.relative(KIT_ROOT, PROJECT_CONTEXT_PATH)}', '${path.relative(KIT_ROOT, PROJECT_STACK_DETECTION_PATH)}', '${path.relative(KIT_ROOT, PROJECT_PROFILE_LOCK_PATH)}'.`
+      `phase Lock: dry-run -> would update '${path.relative(KIT_ROOT, PROJECT_STACK_CONTEXT_PATH)}', '${path.relative(KIT_ROOT, PROJECT_CONTEXT_PATH)}', '${path.relative(KIT_ROOT, PROJECT_STACK_DETECTION_PATH)}', '${path.relative(KIT_ROOT, PROJECT_PROFILE_LOCK_PATH)}'.`
     );
     return;
   }
 
+  await writeYamlFile(PROJECT_STACK_CONTEXT_PATH, detection.stackContext);
   await writeYamlFile(PROJECT_CONTEXT_PATH, context);
   await writeYamlFile(PROJECT_STACK_DETECTION_PATH, updatedDetectionSpec);
   await writeYamlFile(PROJECT_PROFILE_LOCK_PATH, lock);
@@ -1485,6 +2387,20 @@ function assertNoBootstrapOnlyOptions(command: string, options: CliOptions): voi
   if (usedBootstrapOption) {
     throw new Error(
       `Options --guided, --confirm-detection, --sync, --confirm-sync, --enable-pack, --disable-pack are supported only with 'bootstrap'. Command='${command}'.`
+    );
+  }
+}
+
+function assertNoDetectionDialogOptions(command: string, options: CliOptions): void {
+  const usedDetectionDialogOption =
+    options.detectionAction !== null ||
+    options.detectSelectedStack.trim().length > 0 ||
+    options.detectEditPayloads.length > 0 ||
+    options.detectNotes.length > 0;
+
+  if (usedDetectionDialogOption) {
+    throw new Error(
+      `Options --detect-action, --detect-selected-stack, --detect-edit, --detect-note are supported only with 'detect-stack' and 'bootstrap'. Command='${command}'.`
     );
   }
 }
@@ -1518,6 +2434,8 @@ async function main(): Promise<void> {
     await runBootstrapCommand(manifest, sections, cliOptions);
     return;
   }
+
+  assertNoDetectionDialogOptions(command, cliOptions);
 
   if (command === "validate") {
     assertNoBootstrapOnlyOptions(command, cliOptions);

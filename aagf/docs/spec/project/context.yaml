@@ -1,37 +1,32 @@
 version: 1
-status: active
+status: draft
 project:
-  id: node-typescript
+  id: manual-profile
   root: .
   docs_installed: true
   root_agents:
     mode: replace
     overwrite: true
 facts:
-  files_present:
-    - package-lock.json
-    - package.json
-    - tsconfig.json
-  package_managers:
-    - npm
-  languages:
-    - typescript
-    - javascript
+  files_present: []
+  package_managers: []
+  languages: []
   runtimes:
     jetbrains: .aiassistant
     cursor: .cursor
 detection:
-  selected_stack: node-typescript
-  confidence: 0.8
-  decision: confirm
-  evidence:
-    - Обнаружен package.json.
-    - Обнаружен tsconfig.json.
-    - Обнаружен package-lock.json.
-    - Обнаружена зависимость typescript.
+  selected_stack: unknown
+  confidence: 0
+  decision: unknown
+  evidence: []
+  source: mcp
+  session_id: none
+  status: pending-confirm
+  stack_context_ref: aagf/docs/spec/project/stack-context.yaml
 governance:
-  active_commenting_profile: node-typescript.tsdoc-v1
+  active_commenting_profile: generic.commenting-v1
   commenting_profiles_ref: aagf/docs/spec/stacks/comment-doc-profiles.yaml
 notes:
-  - Root AGENTS.md должен заменяться install-шаблоном aagf/docs/install/AGENTS.md.
-  - Dry-run является режимом по умолчанию.
+  - Root AGENTS.md заменяется install-шаблоном aagf/docs/install/AGENTS.md.
+  - Detect выполняется через MCP-only deep detection с confirm/edit gate.
+  - Статус draft должен перейти в active после подтверждения детекции в bootstrap.

@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aagf.dev/schemas/stack-context.schema.json",
+  "title": "AAGF deep stack context",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "source",
+    "session_id",
+    "detected_at",
+    "levels",
+    "summary"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "source": {
+      "type": "string",
+      "const": "mcp"
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "detected_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "levels": {
+      "$ref": "#/$defs/levels"
+    },
+    "summary": {
+      "$ref": "#/$defs/summary"
+    }
+  },
+  "$defs": {
+    "levelItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "confidence",
+        "source",
+        "evidence"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "mcp",
+            "user"
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "levelList": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/levelItem"
+      }
+    },
+    "levels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "server",
+        "runtime",
+        "languages",
+        "frameworks",
+        "libraries",
+        "packages",
+        "databases",
+        "cache",
+        "messaging",
+        "ci",
+        "deploy"
+      ],
+      "properties": {
+        "os": {
+          "$ref": "#/$defs/levelList"
+        },
+        "server": {
+          "$ref": "#/$defs/levelList"
+        },
+        "runtime": {
+          "$ref": "#/$defs/levelList"
+        },
+        "languages": {
+          "$ref": "#/$defs/levelList"
+        },
+        "frameworks": {
+          "$ref": "#/$defs/levelList"
+        },
+        "libraries": {
+          "$ref": "#/$defs/levelList"
+        },
+        "packages": {
+          "$ref": "#/$defs/levelList"
+        },
+        "databases": {
+          "$ref": "#/$defs/levelList"
+        },
+        "cache": {
+          "$ref": "#/$defs/levelList"
+        },
+        "messaging": {
+          "$ref": "#/$defs/levelList"
+        },
+        "ci": {
+          "$ref": "#/$defs/levelList"
+        },
+        "deploy": {
+          "$ref": "#/$defs/levelList"
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primary_stack_id",
+        "confidence",
+        "decision",
+        "unknown_levels"
+      ],
+      "properties": {
+        "primary_stack_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "decision": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "confirm",
+            "unknown"
+          ]
+        },
+        "unknown_levels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "os",
+              "server",
+              "runtime",
+              "languages",
+              "frameworks",
+              "libraries",
+              "packages",
+              "databases",
+              "cache",
+              "messaging",
+              "ci",
+              "deploy"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

@@ -29,8 +29,8 @@
 Интеграция AAGF в новый или существующий проект MUST выполняться как управляемый bootstrap-процесс:
 
 1. **Install**: подключить продуктовый дистрибутив `aagf/` в корень проекта и заменить root `AGENTS.md` install-шаблоном `aagf/docs/install/AGENTS.md`.
-2. **Detect**: агент MUST определить стек и контекст проекта по файловым маркерам, конфигам и структуре репозитория.
-3. **Confirm**: специалист MUST подтвердить или скорректировать результат детекции (auto-решение без порога confidence MUST NOT применяться).
+2. **Detect**: MCP-агент MUST выполнить глубокую детекцию стека по уровням (`os/server/runtime/language/frameworks/libraries/packages/db/cache/messaging/ci/deploy`) и сформировать stack-context.
+3. **Confirm**: специалист MUST получить результат детекции в диалоге и MUST либо подтвердить, либо скорректировать его; переход без explicit confirm/edit MUST NOT применяться.
 4. **Compose**: выбрать подключаемые наборы правил, ролей, prompts и project-overrides.
 5. **Generate**: сформировать `aagf/docs/human/**` и `aagf/docs/adapters/**` из `aagf/docs/spec/**`.
 6. **Sync**: синхронизировать выбранный target в runtime-контур (`/.aiassistant/**`, `/.cursor/**`) только после явного подтверждения.
@@ -41,7 +41,45 @@
 - **Правила** задают инварианты, пороги confidence и обязательные контрольные точки.
 - **Промпты** задают операционный сценарий диалога и принятия решений.
 - **Агент** выполняет детекцию, компоновку и верификацию.
-- **MCP** MAY использоваться как усилитель контекста, но интеграция MUST работать и без MCP.
+- **MCP** MUST быть обязательным контуром фазы `Detect`; локальная эвристическая детекция MUST NOT использоваться как основной путь.
+
+### Зафиксированное задание: полный переход Detect на MCP (с диалоговым подтверждением)
+
+Цель:
+
+- Полностью перевести phase `Detect` на MCP-only модель.
+- Сделать подтверждение результата детекции обязательным диалоговым шагом до `Compose/Lock`.
+
+Обязательное поведение фазы `Detect`:
+
+1. Агент MUST отправить в диалог уведомление о старте детекции (`detect-started`) с указанием `project-root`, `detector-id`, `session-id`.
+2. MCP-детектор MUST вернуть структурированный stack-context с confidence и evidence по каждому уровню.
+3. Агент MUST опубликовать в диалог сводку обнаруженного стека и список unknown/low-confidence элементов.
+4. Агент MUST запросить explicit действие специалиста: `confirm` или `edit`.
+5. IF специалист выбрал `edit` THEN изменения MUST быть сохранены как overrides и MUST участвовать в финальной сборке stack-context.
+6. Phase `Lock` MUST выполняться только после confirm/edit и итогового reconcile MCP + overrides.
+
+Обязательные артефакты:
+
+- `aagf/docs/spec/project/stack-context.yaml` — глубокая структура стека по уровням.
+- `aagf/docs/spec/project/stack-overrides.yaml` — правки специалиста из диалога.
+- `aagf/docs/spec/project/stack-detection.yaml` — session/status/result детекции.
+- `aagf/docs/spec/project/context.yaml` и `profile.lock.yaml` — подтвержденный финальный профиль.
+
+Пошаговый план реализации:
+
+1. Зафиксировать в spec политику `MCP-only Detect` и обновить bootstrap rules.
+2. Ввести schema-контракты для `stack-context`, `stack-overrides` и MCP response.
+3. Реализовать MCP-инструмент `detect_stack_deep` в tooling-контуре.
+4. Перевести `docs:detect-stack` и `bootstrap/Detect` на вызов MCP-контракта.
+5. Добавить обязательное диалоговое сообщение о старте детекции.
+6. Добавить обязательный диалоговый вывод результатов (структурированный стек + confidence/evidence).
+7. Реализовать confirm/edit gate в guided-режиме.
+8. Реализовать запись edit-правок в `stack-overrides.yaml` и reconcile итогового контекста.
+9. Обновить `context.yaml` и `profile.lock.yaml` под расширенный stack-context и detector metadata.
+10. Обновить generated adapters, чтобы runtime-агенты применяли подтвержденный stack-context как вход для rules/prompts/workflows.
+11. Добавить contract/integration тесты для сценариев confirm/edit/unknown.
+12. Зафиксировать migration notes и compatibility notes для перехода с локальной детекции на MCP-only.
 
 ## Ключевой вывод
 
@@ -214,13 +252,13 @@ JetBrains и Cursor должны восприниматься как adapter lay
 | Конфигурация AAGF | `CFG` | `CFG-001` source-of-truth в `aagf/docs/spec/**`; `CFG-002` запрет ручных правок generated-слоев; `CFG-003` drift MUST фиксироваться и синхронизироваться; `CFG-004` межконтурные изменения только по explicit confirm |
 | Модель правил | `RUL` | `RUL-001` source-правила модульные; `RUL-002` стабильные `rule_id`; `RUL-003` обязательный rules index/map; `RUL-004` enable/disable только через packs/overrides |
 | Bootstrap workflow | `BOOT` | `BOOT-001` обязательные фазы `Install -> Detect -> Confirm -> Compose -> Generate -> Sync -> Lock`; `BOOT-002` detect-stack в dry-run по умолчанию; `BOOT-003` non-destructive apply и запрет неявного overwrite |
-| Детекция стека | `DET` | `DET-001` evidence-based scoring; `DET-002` confidence thresholds (`>=0.85 auto`, `0.60-0.84 confirm`, `<0.60 unknown`); `DET-003` при низкой уверенности требуется явный confirm |
+| Детекция стека | `DET` | `DET-001` MCP-only deep detection по уровням стека; `DET-002` confidence thresholds (`>=0.85 auto`, `0.60-0.84 confirm`, `<0.60 unknown`); `DET-003` результат MUST публиковаться в диалог и требовать explicit confirm/edit |
 | Генерация и синхронизация | `GEN` | `GEN-001` детерминированная генерация; `GEN-002` target-aware режим `jetbrains|cursor|all`; `GEN-003` runtime-sync только по явной команде/подтверждению |
 | Инженерный код-стандарт | `CODE` | `CODE-001` запрет заглушек/фиктивной реализации в финальном коде; `CODE-002` минимально-инвазивные изменения; `CODE-003` комментарии и документация для нетривиальных контрактов |
 | Тесты и валидация | `QA` | `QA-001` обязательные quality gates (`lint/typecheck/tests/build`); `QA-002` no done without verification; `QA-003` change-type (`breaking/non-breaking/editorial`) + compatibility notes |
 | Безопасность | `SEC` | `SEC-001` запрет секретов в репозитории/логах; `SEC-002` подтверждение деструктивных действий; `SEC-003` валидация входа и безопасные дефолты |
 | DevOps / системные | `OPS` | `OPS-001` CI должен зеркалировать локальные quality gates; `OPS-002` воспроизводимость сборки/зависимостей; `OPS-003` migration/rollback план для breaking-изменений |
-| AI-оркестрация | `AI` | `AI-001` prompts только как оркестрация; `AI-002` агент фиксирует допущения и уверенность; `AI-003` MCP optional, core-детекция должна работать офлайн |
+| AI-оркестрация | `AI` | `AI-001` prompts только как оркестрация; `AI-002` агент фиксирует допущения и уверенность; `AI-003` MCP обязателен для фазы `Detect`, для остальных workflow MAY использоваться как enrichment |
 
 ### 6.2. Нейминг секций policy-слоя (целевая архитектура)
 

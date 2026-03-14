@@ -1,0 +1,6 @@
+version: 1
+selected_stack_override: ""
+edits: []
+notes:
+  - Файл правок стека от специалиста в confirm/edit фазе.
+  - IF edit вносится через диалог THEN агент MUST синхронизировать его в этот файл перед lock.

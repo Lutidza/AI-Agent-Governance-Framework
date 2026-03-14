@@ -31,5 +31,5 @@
 - Version: `0.1.0`
 - Target: `cursor`
 - Sections: `5`
-- Rules: `45`
+- Rules: `50`
 - Prompts: `3`

@@ -8,7 +8,7 @@
 - Все нормативные изменения MUST вноситься сначала в `aagf/docs/spec/**`.
 - `aagf/docs/human/**` и `aagf/docs/adapters/**` MUST синхронизироваться на основе `aagf/docs/spec/**`.
 - Секционные спецификации MAY храниться в монолитном формате (`section + entries[]`) или в модульном формате (`rules.index.yaml` + `rules/*.yaml`).
-- Проектный bootstrap-контур MUST храниться в `aagf/docs/spec/project/**` и MUST включать `context.yaml`, `stack-detection.yaml`, `enabled-packs.yaml`, `overrides.yaml`, `profile.lock.yaml`.
+- Проектный bootstrap-контур MUST храниться в `aagf/docs/spec/project/**` и MUST включать `context.yaml`, `stack-context.yaml`, `stack-overrides.yaml`, `stack-detection.yaml`, `enabled-packs.yaml`, `overrides.yaml`, `profile.lock.yaml`.
 
 ## Карта разделов
 
@@ -19,6 +19,8 @@
 - [roles/README.md](roles/README.md)
 - [adapters/README.md](adapters/README.md)
 - `project/context.yaml`
+- `project/stack-context.yaml`
+- `project/stack-overrides.yaml`
 - `project/stack-detection.yaml`
 - `project/enabled-packs.yaml`
 - `project/overrides.yaml`
