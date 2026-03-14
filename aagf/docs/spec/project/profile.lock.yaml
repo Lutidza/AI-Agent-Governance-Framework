@@ -18,8 +18,8 @@ generated_targets:
   - jetbrains
   - cursor
 root_agents:
-  mode: merge
-  overwrite: false
+  mode: replace
+  overwrite: true
   confirmed: true
 governance:
   active_commenting_profile: node-typescript.tsdoc-v1

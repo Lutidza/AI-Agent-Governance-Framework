@@ -251,6 +251,15 @@ type SyncPlan = {
   unchangedCount: number;
 };
 
+type RootAgentsInstallPlan = {
+  templateRelPath: string;
+  templateAbsolutePath: string;
+  templateContent: string;
+  destinationPath: string;
+  destinationExists: boolean;
+  needsWrite: boolean;
+};
+
 const KIT_ROOT = process.cwd();
 const MANIFEST_PATH = path.join(KIT_ROOT, "docs/spec/manifests/docs.manifest.yaml");
 const MANIFEST_SCHEMA_PATH = path.join(KIT_ROOT, "docs/spec/schemas/docs-manifest.schema.json");
@@ -265,6 +274,7 @@ const PROJECT_ENABLED_PACKS_PATH = path.join(PROJECT_SPEC_DIR, "enabled-packs.ya
 const PROJECT_OVERRIDES_PATH = path.join(PROJECT_SPEC_DIR, "overrides.yaml");
 const PROJECT_PROFILE_LOCK_PATH = path.join(PROJECT_SPEC_DIR, "profile.lock.yaml");
 const COMMENTING_PROFILES_REF = "aagf/docs/spec/stacks/comment-doc-profiles.yaml";
+const ROOT_AGENTS_TEMPLATE_REL = "docs/install/AGENTS.md";
 
 function normalizeText(input: string): string {
   return input.replace(/\r\n/g, "\n").trimEnd() + "\n";
@@ -609,6 +619,43 @@ async function checkDrift(outputs: Map<string, string>): Promise<string[]> {
   }
 
   return drifted;
+}
+
+async function buildRootAgentsInstallPlan(projectRoot: string): Promise<RootAgentsInstallPlan> {
+  const templateAbsolutePath = path.join(KIT_ROOT, ROOT_AGENTS_TEMPLATE_REL);
+  if (!(await pathExists(templateAbsolutePath))) {
+    throw new Error(
+      `Bootstrap Install phase failed: root AGENTS template '${ROOT_AGENTS_TEMPLATE_REL}' was not found.`
+    );
+  }
+
+  const templateContent = normalizeText(await readFile(templateAbsolutePath, "utf8"));
+  const destinationPath = path.join(projectRoot, "AGENTS.md");
+  let destinationExists = true;
+  let destinationContent = "";
+
+  try {
+    destinationContent = await readFile(destinationPath, "utf8");
+  } catch {
+    destinationExists = false;
+  }
+
+  const needsWrite =
+    !destinationExists || normalizeText(destinationContent) !== templateContent;
+
+  return {
+    templateRelPath: ROOT_AGENTS_TEMPLATE_REL,
+    templateAbsolutePath,
+    templateContent,
+    destinationPath,
+    destinationExists,
+    needsWrite
+  };
+}
+
+async function applyRootAgentsInstallPlan(plan: RootAgentsInstallPlan): Promise<void> {
+  await mkdir(path.dirname(plan.destinationPath), { recursive: true });
+  await writeFile(plan.destinationPath, plan.templateContent, "utf8");
 }
 
 function printUsage(): void {
@@ -1184,8 +1231,8 @@ function buildProjectContext(outcome: StackDetectionOutcome, projectRoot: string
       root: projectRootValue,
       docs_installed: true,
       root_agents: {
-        mode: "merge",
-        overwrite: false
+        mode: "replace",
+        overwrite: true
       }
     },
     facts: {
@@ -1208,7 +1255,7 @@ function buildProjectContext(outcome: StackDetectionOutcome, projectRoot: string
       commenting_profiles_ref: COMMENTING_PROFILES_REF
     },
     notes: [
-      "Root AGENTS.md должен применяться только через merge-предложение.",
+      "Root AGENTS.md должен заменяться install-шаблоном aagf/docs/install/AGENTS.md.",
       "Dry-run является режимом по умолчанию."
     ]
   };
@@ -1235,8 +1282,8 @@ function buildProfileLock(
     overrides_ref: "aagf/docs/spec/project/overrides.yaml",
     generated_targets: targets.map((target) => target.id),
     root_agents: {
-      mode: "merge",
-      overwrite: false,
+      mode: "replace",
+      overwrite: true,
       confirmed: confirmDetection
     },
     governance: {
@@ -1289,7 +1336,7 @@ async function runDetectStackCommand(cliOptions: CliOptions): Promise<void> {
   const outcome = await detectStack(spec, projectRoot);
   printDetectionOutcome(outcome);
   console.log(
-    `docs-build: project-root='${projectRoot}', root AGENTS.md strategy=merge-only (overwrite disabled).`
+    `docs-build: project-root='${projectRoot}', root AGENTS.md strategy=replace-from-template ('${ROOT_AGENTS_TEMPLATE_REL}').`
   );
 
   if (!cliOptions.apply) {
@@ -1327,15 +1374,28 @@ async function runBootstrapCommand(
   );
 
   const docsExists = await pathExists(path.join(KIT_ROOT, "docs"));
-  const rootAgentsExists = await pathExists(path.join(projectRoot, "AGENTS.md"));
+  const rootAgentsPlan = await buildRootAgentsInstallPlan(projectRoot);
 
   if (!docsExists) {
     throw new Error("Bootstrap Install phase failed: 'aagf/docs/' was not found in kit root.");
   }
 
   console.log(
-    `phase Install: aagf/docs/=ok, root AGENTS.md=${rootAgentsExists ? "found" : "missing"}, strategy=merge-only, overwrite=disabled.`
+    `phase Install: aagf/docs/=ok, root AGENTS.md=${rootAgentsPlan.destinationExists ? "found" : "missing"}, strategy=replace, template='${rootAgentsPlan.templateRelPath}'.`
   );
+
+  if (dryRun) {
+    if (rootAgentsPlan.needsWrite) {
+      console.log("phase Install: dry-run -> would replace root AGENTS.md from install template.");
+    } else {
+      console.log("phase Install: dry-run -> root AGENTS.md already matches install template.");
+    }
+  } else if (rootAgentsPlan.needsWrite) {
+    await applyRootAgentsInstallPlan(rootAgentsPlan);
+    console.log("phase Install: root AGENTS.md replaced from install template.");
+  } else {
+    console.log("phase Install: root AGENTS.md already matches install template.");
+  }
 
   const stackSpec = await readStackDetectionSpec();
   const detection = await detectStack(stackSpec, projectRoot);

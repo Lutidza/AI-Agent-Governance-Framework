@@ -5,8 +5,8 @@ project:
   root: .
   docs_installed: true
   root_agents:
-    mode: merge
-    overwrite: false
+    mode: replace
+    overwrite: true
 facts:
   files_present:
     - package-lock.json
@@ -33,5 +33,5 @@ governance:
   active_commenting_profile: node-typescript.tsdoc-v1
   commenting_profiles_ref: aagf/docs/spec/stacks/comment-doc-profiles.yaml
 notes:
-  - Root AGENTS.md должен применяться только через merge-предложение.
+  - Root AGENTS.md должен заменяться install-шаблоном aagf/docs/install/AGENTS.md.
   - Dry-run является режимом по умолчанию.

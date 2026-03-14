@@ -29,11 +29,13 @@
 - `adapters/cursor/**` MUST хранить generated-артефакты для Cursor.
 - IF требуется runtime-синхронизация THEN источником MUST быть `adapters/<target>/runtime/**`.
 - Runtime-приемники MUST быть `.aiassistant/**` и `.cursor/**` в корне целевого проекта.
+- IF runtime-контур (`.aiassistant/**` или `.cursor/**`) существует THEN он MUST иметь приоритет над `adapters/**` и `spec/**` как операционный источник.
+- IF runtime-контур отсутствует THEN агент MUST использовать `adapters/**`; IF `adapters/**` отсутствуют THEN fallback MUST быть `spec/**`.
 
 ## Bootstrap-протокол
 
 - Агент MUST выполнять шаги: `Install -> Detect -> Confirm -> Compose -> Generate -> Sync -> Lock`.
-- На шаге `Install` root `AGENTS.md` MUST применяться только в merge-режиме.
+- На шаге `Install` root `AGENTS.md` MUST заменяться шаблоном `aagf/docs/install/AGENTS.md`.
 - На шаге `Detect` MUST использоваться `spec/project/stack-detection.yaml`.
 - На шаге `Lock` MUST обновляться `spec/project/profile.lock.yaml`.
 

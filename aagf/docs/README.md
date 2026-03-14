@@ -14,6 +14,8 @@
 - `adapters/jetbrains/**` MUST формировать runtime-пакет для `.aiassistant/**`.
 - `adapters/cursor/**` MUST формировать runtime-пакет для `.cursor/**`.
 - Alias-модель старого `docs/.aiassistant` MUST NOT использоваться.
+- IF runtime adapters (`.aiassistant/**`, `.cursor/**`) уже существуют в целевом проекте THEN они MUST иметь приоритет как операционный источник правил.
+- IF runtime adapters отсутствуют THEN агент MUST использовать `aagf/docs/adapters/**`; IF adapters еще не сгенерированы THEN fallback MUST быть `aagf/docs/spec/**`.
 
 ## Rule packaging model
 
@@ -26,7 +28,7 @@
 ## Bootstrap workflow
 
 - Интеграция MUST выполняться по фазам: `Install -> Detect -> Confirm -> Compose -> Generate -> Sync -> Lock`.
-- `Install`: пакет `aagf/` MUST быть добавлен в целевой проект; root `AGENTS.md` MUST применяться только через merge.
+- `Install`: пакет `aagf/` MUST быть добавлен в целевой проект; root `AGENTS.md` MUST заменяться шаблоном `aagf/docs/install/AGENTS.md`.
 - `Detect`: стек MUST определяться по артефактам целевого репозитория.
 - `Generate`: `human/**` и `adapters/**` MUST генерироваться только из `spec/**`.
 - `Sync`: runtime-синхронизация MUST выполняться только по явному подтверждению.
@@ -35,6 +37,7 @@
 ## Структура пакета
 
 - [AGENTS.md](AGENTS.md)
+- [install/AGENTS.md](install/AGENTS.md)
 - [spec/README.md](spec/README.md)
 - [human/README.md](human/README.md)
 - `adapters/jetbrains/**`
