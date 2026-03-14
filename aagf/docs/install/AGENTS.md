@@ -22,6 +22,12 @@
 - IF runtime adapter отсутствует THEN агент MUST использовать `aagf/docs/adapters/**`.
 - IF отсутствуют и runtime adapters, и generated adapters THEN агент MUST использовать `aagf/docs/spec/**` как fallback.
 
+## Runtime artifacts layout
+
+- Runtime rules MUST использовать индекс `rules/README.md` и отдельные rule-entry файлы `rules/<section>/<rule-id>.md`.
+- IF в runtime присутствует только монолитный `rules/README.md` без модульных entry-файлов THEN агент MUST считать это drift и MUST запросить перегенерацию/синхронизацию.
+- Runtime prompts MUST оставаться в `prompts/README.md` соответствующего target-runtime каталога.
+
 ## IDE target selection
 
 - IF присутствует только `.aiassistant/**` THEN активный target = `jetbrains`.
@@ -32,7 +38,13 @@
 
 - Изменения policy-слоя MUST вноситься в `aagf/docs/spec/**`.
 - После изменения source-слоя агент MUST выполнять генерацию и проверку (`docs:generate`, `docs:check` или `docs:test`).
+- Перед apply-синхронизацией агент MUST выполнять dry-run (`docs:sync:check`) и показывать список изменений.
 - Синхронизация в runtime (`docs:sync`) MUST выполняться только по явному подтверждению пользователя.
+
+## Stack-context gate
+
+- Runtime rules/prompts/workflows MUST использовать подтвержденный `aagf/docs/spec/project/stack-context.yaml`.
+- IF `detection.status` в project-контуре указывает `pending-confirm` THEN агент MUST остановить runtime-sync и запросить explicit `confirm` или `edit`.
 
 ## Safety
 

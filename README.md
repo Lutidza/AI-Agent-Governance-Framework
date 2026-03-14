@@ -205,6 +205,13 @@ npm.cmd run docs:sync:check -- --target all
 npm.cmd run docs:sync -- --target all
 ```
 
+### Типовые проблемы при установке
+
+- IF `docs:detect-stack` возвращает `decision=unknown` или низкую уверенность THEN MUST использовать Confirm gate через `--detect-action edit` и зафиксировать `--detect-selected-stack`.
+- IF `docs:sync:check` на первом прогоне показывает `CREATE/UPDATE` для runtime-файлов THEN это ожидаемое состояние до первого `docs:sync`.
+- IF в PowerShell команда `npm` блокируется policy/alias THEN SHOULD использовать `npm.cmd`.
+- IF целевой каталог не является git-репозиторием THEN установка AAGF возможна, но commit/push в этом каталоге будет недоступен до `git init` или клонирования репозитория.
+
 ### Обязательные артефакты после apply
 
 - `aagf/docs/spec/project/stack-context.yaml`
