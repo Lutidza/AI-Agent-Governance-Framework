@@ -5,7 +5,7 @@
 ## Область действия
 
 - Корневые `README.md` и `AGENTS.md` MUST применяться как инструкции для разработки текущего репозитория.
-- `initial-data/**` MUST рассматриваться как reference-контур.
+- `docs/initial-data/**` MUST рассматриваться как reference-контур.
 - `aagf/docs/**` MUST рассматриваться как продуктовый docs-контур.
 - `aagf/docs/README.md` и `aagf/docs/AGENTS.md` MUST NOT трактоваться как инструкции для meta-контура разработки.
 
@@ -14,7 +14,7 @@
 Перед любой правкой агент MUST определить целевой контур:
 
 1. `root/meta` — правила и архитектура разработки AAGF.
-2. `initial-data` — входные референсные материалы.
+2. `docs/initial-data` — входные референсные материалы.
 3. `aagf-kit` — переносимый набор `aagf/{docs,tools,package.json}`.
 4. `aagf/docs/spec` — machine-readable source layer docs-контура.
 5. `aagf/docs/human` — human-readable derived layer docs-контура.

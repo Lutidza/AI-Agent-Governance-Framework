@@ -1,0 +1,112 @@
+schema_version: "1.0"
+kind: "aagf.install.playbook.mcp"
+guide_id: "AAGF-INSTALL-MCP-001"
+title: "AAGF Installation Guide for AI Agents (MCP)"
+language: "ru"
+audience: "ai-agent-only"
+entrypoint:
+  ai_guide: true
+  label: "Если ты ИИ — тебе сюда."
+  usage: "Используй этот файл как machine-readable источник установки и интеграции."
+
+policy:
+  required_workflow_phases:
+    - "Install"
+    - "Detect"
+    - "Confirm"
+    - "Compose"
+    - "Generate"
+    - "Sync"
+    - "Lock"
+  required_gates:
+    - id: "detect-confirm-edit"
+      rule: "Перед Lock MUST быть explicit действие confirm или edit."
+    - id: "sync-dry-run-first"
+      rule: "Перед docs:sync MUST выполняться docs:sync:check."
+  runtime_context:
+    stack_context_path: "aagf/docs/spec/project/stack-context.yaml"
+    rule: "Runtime rules/prompts/workflows MUST использовать только подтвержденный stack-context."
+
+mcp:
+  detect:
+    tool: "detect_stack_deep"
+    source: "mcp"
+    required_dialog_events:
+      - "detect-started"
+      - "detect-result"
+    required_summary_fields:
+      - "stack.*"
+      - "unknown-levels"
+      - "low-confidence"
+
+targets:
+  ubuntu:
+    shell: "bash"
+    install_commands:
+      - "git clone --filter=blob:none --sparse https://github.com/Lutidza/AI-Agent-Governance-Framework.git .aagf-src"
+      - "cd .aagf-src"
+      - "git sparse-checkout init --cone"
+      - "git sparse-checkout set aagf"
+      - "git checkout main"
+      - "cd .."
+      - "cp -R .aagf-src/aagf ./aagf"
+      - "rm -rf .aagf-src"
+    bootstrap_commands:
+      - "cd aagf"
+      - "npm install"
+      - "npm run docs:validate"
+      - "npm run docs:detect-stack"
+      - "npm run docs:bootstrap -- --guided --detect-action confirm"
+      - "npm run docs:bootstrap -- --guided --apply --detect-action confirm"
+      - "npm run docs:test -- --target all"
+      - "npm run docs:check -- --target all"
+      - "npm run docs:sync:check -- --target all"
+      - "npm run docs:sync -- --target all"
+    edit_flow_template:
+      - "npm run docs:bootstrap -- --guided --detect-action edit --detect-selected-stack <stack-id> --detect-edit '<yaml-or-json-payload>'"
+      - "npm run docs:bootstrap -- --guided --apply --detect-action edit --detect-selected-stack <stack-id> --detect-edit '<yaml-or-json-payload>'"
+
+  windows:
+    shell: "powershell"
+    install_commands:
+      - "git clone --filter=blob:none --sparse https://github.com/Lutidza/AI-Agent-Governance-Framework.git .aagf-src"
+      - "Set-Location .aagf-src"
+      - "git sparse-checkout init --cone"
+      - "git sparse-checkout set aagf"
+      - "git checkout main"
+      - "Set-Location .."
+      - "Copy-Item -Recurse -Force .aagf-src\\aagf .\\aagf"
+      - "Remove-Item -Recurse -Force .aagf-src"
+    bootstrap_commands:
+      - "Set-Location .\\aagf"
+      - "npm.cmd install"
+      - "npm.cmd run docs:validate"
+      - "npm.cmd run docs:detect-stack"
+      - "npm.cmd run docs:bootstrap -- --guided --detect-action confirm"
+      - "npm.cmd run docs:bootstrap -- --guided --apply --detect-action confirm"
+      - "npm.cmd run docs:test -- --target all"
+      - "npm.cmd run docs:check -- --target all"
+      - "npm.cmd run docs:sync:check -- --target all"
+      - "npm.cmd run docs:sync -- --target all"
+    edit_flow_template:
+      - "npm.cmd run docs:bootstrap -- --guided --detect-action edit --detect-selected-stack <stack-id> --detect-edit '<yaml-or-json-payload>'"
+      - "npm.cmd run docs:bootstrap -- --guided --apply --detect-action edit --detect-selected-stack <stack-id> --detect-edit '<yaml-or-json-payload>'"
+
+expected_artifacts:
+  - "aagf/docs/spec/project/stack-context.yaml"
+  - "aagf/docs/spec/project/stack-overrides.yaml (if edit)"
+  - "aagf/docs/spec/project/stack-detection.yaml"
+  - "aagf/docs/spec/project/context.yaml"
+  - "aagf/docs/spec/project/profile.lock.yaml"
+  - "AGENTS.md (from aagf/docs/install/AGENTS.md)"
+  - ".aiassistant/rules/README.md + .aiassistant/rules/<section>/<rule-id>.md"
+  - ".cursor/rules/README.md + .cursor/rules/<section>/<rule-id>.md"
+
+fallback_rules:
+  - condition: "detect.decision == unknown OR detect.low_confidence == true"
+    action: "Используй --detect-action edit и зафиксируй --detect-selected-stack."
+  - condition: "sync_check.has_changes == true"
+    action: "Считай это ожидаемым до первого docs:sync."
+  - condition: "windows.npm_blocked == true"
+    action: "Используй npm.cmd вместо npm."
+
