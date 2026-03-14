@@ -15,6 +15,14 @@
 - `adapters/cursor/**` MUST формировать runtime-пакет для `.cursor/**`.
 - Alias-модель старого `docs/.aiassistant` MUST NOT использоваться.
 
+## Rule packaging model
+
+- Source-правила в `spec/**` MUST быть модульными: отдельные rule-файлы по назначению и ответственности.
+- Каждый rule-модуль MUST иметь стабильный `rule_id`, область применения и явные условия активации.
+- Для `human/**` и `adapters/**` MUST генерироваться индекс/карта правил (rule index/map) как навигационный слой.
+- Включение/выключение наборов правил MUST управляться через `spec/project/enabled-packs.yaml` и `spec/project/overrides.yaml`.
+- Для конкретной IDE runtime-правила MAY собираться в один агрегированный файл, если этого требует target, но source-модульность MUST сохраняться.
+
 ## Bootstrap workflow
 
 - Интеграция MUST выполняться по фазам: `Install -> Detect -> Confirm -> Compose -> Generate -> Sync -> Lock`.

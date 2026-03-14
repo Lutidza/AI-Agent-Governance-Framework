@@ -4,3 +4,4 @@
 
 - Каждый стек MUST оформляться как отдельный спецификационный пакет.
 - Базовые стековые записи в текущем контуре MUST храниться в `aagf/docs/spec/stacks/profiles.yaml`.
+- Карта профилей документирования комментариев MUST храниться в `aagf/docs/spec/stacks/comment-doc-profiles.yaml`.

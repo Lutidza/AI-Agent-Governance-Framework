@@ -24,5 +24,5 @@
 - Target: `cursor`
 - Sections: `5`
 - Entries: `12`
-- Rules: `43`
+- Rules: `45`
 - Prompts: `3`

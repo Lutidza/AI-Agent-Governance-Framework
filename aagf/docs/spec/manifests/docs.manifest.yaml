@@ -18,7 +18,7 @@ sections:
     title: Core
     description: Базовые стек-независимые инварианты и правила.
     source: docs/spec/core/README.md
-    spec_data: docs/spec/core/policies.yaml
+    spec_data: docs/spec/core/rules.index.yaml
     target_human: docs/human/core/README.md
   - id: stacks
     title: Stacks

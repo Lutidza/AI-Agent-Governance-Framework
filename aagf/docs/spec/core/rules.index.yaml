@@ -1,0 +1,10 @@
+section: core
+version: 1
+mode: modular
+entries:
+  - id: AAGF-CORE-001
+    source: docs/spec/core/rules/AAGF-CORE-001.yaml
+  - id: AAGF-CORE-002
+    source: docs/spec/core/rules/AAGF-CORE-002.yaml
+  - id: AAGF-CORE-003
+    source: docs/spec/core/rules/AAGF-CORE-003.yaml

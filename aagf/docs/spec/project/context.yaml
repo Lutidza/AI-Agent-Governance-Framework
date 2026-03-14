@@ -29,6 +29,9 @@ detection:
     - Обнаружен tsconfig.json.
     - Обнаружен package-lock.json.
     - Обнаружена зависимость typescript.
+governance:
+  active_commenting_profile: node-typescript.tsdoc-v1
+  commenting_profiles_ref: aagf/docs/spec/stacks/comment-doc-profiles.yaml
 notes:
   - Root AGENTS.md должен применяться только через merge-предложение.
   - Dry-run является режимом по умолчанию.

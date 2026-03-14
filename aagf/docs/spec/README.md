@@ -7,7 +7,7 @@
 - `aagf/docs/spec/**` MUST содержать машинно-читаемые спецификации (`yaml`, `json`, схемы, идентификаторы правил).
 - Все нормативные изменения MUST вноситься сначала в `aagf/docs/spec/**`.
 - `aagf/docs/human/**` и `aagf/docs/adapters/**` MUST синхронизироваться на основе `aagf/docs/spec/**`.
-- Секционные спецификации MUST храниться в YAML-файлах разделов (`core/policies.yaml`, `workflows/workflows.yaml` и т.д.).
+- Секционные спецификации MAY храниться в монолитном формате (`section + entries[]`) или в модульном формате (`rules.index.yaml` + `rules/*.yaml`).
 - Проектный bootstrap-контур MUST храниться в `aagf/docs/spec/project/**` и MUST включать `context.yaml`, `stack-detection.yaml`, `enabled-packs.yaml`, `overrides.yaml`, `profile.lock.yaml`.
 
 ## Карта разделов

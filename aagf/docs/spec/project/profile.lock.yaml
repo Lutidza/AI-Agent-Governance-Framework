@@ -21,3 +21,6 @@ root_agents:
   mode: merge
   overwrite: false
   confirmed: true
+governance:
+  active_commenting_profile: node-typescript.tsdoc-v1
+  commenting_profiles_ref: aagf/docs/spec/stacks/comment-doc-profiles.yaml

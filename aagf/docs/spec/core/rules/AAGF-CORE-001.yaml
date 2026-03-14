@@ -1,0 +1,18 @@
+version: 1
+section: core
+entry:
+  id: AAGF-CORE-001
+  title: Declarative-First Source of Truth
+  intent: Все нормативные изменения должны начинаться в machine-readable слое.
+  rules:
+    - aagf/docs/spec/** MUST рассматриваться как primary source of truth.
+    - aagf/docs/human/** и aagf/docs/adapters/** MUST рассматриваться как derived layers.
+    - Прямые изменения в derived layers MUST NOT считаться завершенными без синхронизации source-слоя.
+  if_then:
+    - if: Изменение внесено только в aagf/docs/human/** или aagf/docs/adapters/**
+      then: Агент MUST внести эквивалентное изменение в aagf/docs/spec/** в том же шаге.
+    - if: Выявлен конфликт между source и derived слоями
+      then: Приоритет MUST быть у aagf/docs/spec/**.
+  checks:
+    - Проверить, что изменение зафиксировано в aagf/docs/spec/**.
+    - Проверить, что docs:generate не создает неожиданный drift.

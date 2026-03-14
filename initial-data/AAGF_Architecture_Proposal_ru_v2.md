@@ -21,6 +21,8 @@
 3. Этап обсуждения архитектуры MUST считаться завершенным; текущий этап MUST трактоваться как подготовка к внедрению target-aware генерации.
 4. До старта реализации target-aware генерации MUST быть синхронизированы `initial-data/AAGF_Architecture_Proposal_ru_v2.md`, корневой `README.md` и `aagf/docs/README.md`.
 5. Alias-модель adapter-слоя MUST NOT использоваться, чтобы исключить drift между архитектурой и структурой.
+6. Rule-модель MUST быть модульной в source-слое: правила хранятся раздельными файлами с `rule_id`, а generated-слои MUST содержать индекс/карту правил.
+7. Управление включением/выключением правил MUST выполняться через packs/overrides (`enabled-packs.yaml`, `overrides.yaml`); runtime-агрегация в единый файл MAY применяться только как target-ограничение IDE.
 
 ## Зафиксированное решение по интеграции AAGF в целевой проект
 
@@ -194,6 +196,46 @@ JetBrains и Cursor должны восприниматься как adapter lay
 | **Operational** | Как именно агент работает по этапам | `plan-first`, `approvals`, `handoff`, `done criteria` |
 | **Reference** | Почему правило существует и как им пользоваться | `examples`, `anti-patterns`, `migration notes` |
 
+### 6.1. Базовая таксономия правил (baseline для разных web-стеков)
+
+Для дальнейшей декомпозиции в `aagf/docs/spec/**` следует зафиксировать единый каталог групп правил и типизацию.
+
+Типизация:
+
+- `MUST` — обязывающее правило;
+- `MUST NOT` — запрещающее правило;
+- `IF -> THEN MUST` — условно-обязывающее правило;
+- `SHOULD` — рекомендательное правило.
+
+Группы и baseline-правила:
+
+| Группа | Префикс rule-id | Базовые правила группы |
+|---|---|---|
+| Конфигурация AAGF | `CFG` | `CFG-001` source-of-truth в `aagf/docs/spec/**`; `CFG-002` запрет ручных правок generated-слоев; `CFG-003` drift MUST фиксироваться и синхронизироваться; `CFG-004` межконтурные изменения только по explicit confirm |
+| Модель правил | `RUL` | `RUL-001` source-правила модульные; `RUL-002` стабильные `rule_id`; `RUL-003` обязательный rules index/map; `RUL-004` enable/disable только через packs/overrides |
+| Bootstrap workflow | `BOOT` | `BOOT-001` обязательные фазы `Install -> Detect -> Confirm -> Compose -> Generate -> Sync -> Lock`; `BOOT-002` detect-stack в dry-run по умолчанию; `BOOT-003` non-destructive apply и запрет неявного overwrite |
+| Детекция стека | `DET` | `DET-001` evidence-based scoring; `DET-002` confidence thresholds (`>=0.85 auto`, `0.60-0.84 confirm`, `<0.60 unknown`); `DET-003` при низкой уверенности требуется явный confirm |
+| Генерация и синхронизация | `GEN` | `GEN-001` детерминированная генерация; `GEN-002` target-aware режим `jetbrains|cursor|all`; `GEN-003` runtime-sync только по явной команде/подтверждению |
+| Инженерный код-стандарт | `CODE` | `CODE-001` запрет заглушек/фиктивной реализации в финальном коде; `CODE-002` минимально-инвазивные изменения; `CODE-003` комментарии и документация для нетривиальных контрактов |
+| Тесты и валидация | `QA` | `QA-001` обязательные quality gates (`lint/typecheck/tests/build`); `QA-002` no done without verification; `QA-003` change-type (`breaking/non-breaking/editorial`) + compatibility notes |
+| Безопасность | `SEC` | `SEC-001` запрет секретов в репозитории/логах; `SEC-002` подтверждение деструктивных действий; `SEC-003` валидация входа и безопасные дефолты |
+| DevOps / системные | `OPS` | `OPS-001` CI должен зеркалировать локальные quality gates; `OPS-002` воспроизводимость сборки/зависимостей; `OPS-003` migration/rollback план для breaking-изменений |
+| AI-оркестрация | `AI` | `AI-001` prompts только как оркестрация; `AI-002` агент фиксирует допущения и уверенность; `AI-003` MCP optional, core-детекция должна работать офлайн |
+
+### 6.2. Нейминг секций policy-слоя (целевая архитектура)
+
+Чтобы устранить неоднозначность терминов (`core`, `system`, `devops`) и стабилизировать модульную декомпозицию, в `aagf/docs/spec/**` следует зафиксировать следующий нейминг:
+
+| Секция | Назначение | Префикс rule-id |
+|---|---|---|
+| `core` | Базовые стек-независимые инварианты governance | `AAGF-CORE-*` |
+| `distribution` | Системные правила продуктового дистрибутива AAGF (`install/bootstrap/detect/compose/generate/sync/lock`, versioning, compatibility) | `AAGF-DIST-*` |
+| `ops` | DevOps-контур (`CI/CD`, quality gates, release, rollback, reproducibility) | `AAGF-OPS-*` |
+| `engineering` | Инженерные правила кода, комментариев и практик реализации | `AAGF-ENG-*` |
+| `security` | Правила безопасности, секретов, доступов и рискованных операций | `AAGF-SEC-*` |
+
+Секции `stacks`, `workflows`, `roles`, `adapters`, `project` SHOULD сохраняться как профильные и не переименовываться без migration notes.
+
 ---
 
 ## 7. Операционная политика использования агентов
@@ -242,6 +284,20 @@ AAGF/
         manifests/
           docs.manifest.yaml
         core/
+          rules.index.yaml
+          rules/
+        distribution/
+          rules.index.yaml
+          rules/
+        ops/
+          rules.index.yaml
+          rules/
+        engineering/
+          rules.index.yaml
+          rules/
+        security/
+          rules.index.yaml
+          rules/
         stacks/
         workflows/
         roles/
@@ -309,6 +365,7 @@ AAGF/
 ## 11. Практические приёмы
 
 - писать правила короткими блоками, а не большими манифестами;
+- хранить source-правила модульно: отдельные rule-файлы по назначению + индекс/карта содержимого;
 - не смешивать policy и prompts: policy определяет нормы, prompt определяет способ вызова сценария;
 - не держать единственный источник знаний в IDE-конфиге; базовая истина должна жить в machine-readable core-слое (`kit.manifest.yaml`, `core/**/*.yaml`) и в product source-слое `aagf/docs/spec/**`;
 - разделять machine-readable и human-readable представления правил;

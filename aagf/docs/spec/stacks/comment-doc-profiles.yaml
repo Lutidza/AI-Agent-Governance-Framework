@@ -1,0 +1,106 @@
+version: 1
+catalog_id: AAGF-STACK-COMMENT-PROFILES
+description: Карта стековых профилей документирования комментариев и метаданных трассируемости.
+profiles:
+  - id: node-typescript.tsdoc-v1
+    title: Node/TypeScript Commenting Profile
+    stack_ids:
+      - node-typescript
+    language: typescript
+    doc_style: tsdoc
+    required_metadata:
+      - file
+      - version
+      - edited_at
+    required_semantic_tags:
+      - params
+      - returns
+      - throws
+      - remarks
+    optional_semantic_tags:
+      - example
+      - see
+      - link
+      - deprecated
+    policy:
+      stale_comment: must_update_in_same_change
+      todo_fixme: require_reason_and_task_ref
+  - id: php.phpdoc-v1
+    title: PHP Commenting Profile
+    stack_ids:
+      - php
+      - laravel
+      - symfony
+    language: php
+    doc_style: phpdoc
+    required_metadata:
+      - file
+      - version
+      - edited_at
+    required_semantic_tags:
+      - params
+      - returns
+      - throws
+      - remarks
+    optional_semantic_tags:
+      - example
+      - see
+      - link
+      - deprecated
+    policy:
+      stale_comment: must_update_in_same_change
+      todo_fixme: require_reason_and_task_ref
+  - id: dart.dartdoc-v1
+    title: Dart Commenting Profile
+    stack_ids:
+      - dart
+      - flutter
+    language: dart
+    doc_style: dartdoc
+    required_metadata:
+      - file
+      - version
+      - edited_at
+    required_semantic_tags:
+      - params
+      - returns
+      - throws
+      - remarks
+    optional_semantic_tags:
+      - example
+      - see
+      - link
+      - deprecated
+    policy:
+      stale_comment: must_update_in_same_change
+      todo_fixme: require_reason_and_task_ref
+  - id: generic.commenting-v1
+    title: Generic Commenting Profile
+    stack_ids:
+      - unknown
+    language: generic
+    doc_style: native-doc-style
+    required_metadata:
+      - file
+      - version
+      - edited_at
+    required_semantic_tags:
+      - params
+      - returns
+      - throws
+      - remarks
+    optional_semantic_tags:
+      - example
+      - see
+      - link
+      - deprecated
+    policy:
+      stale_comment: must_update_in_same_change
+      todo_fixme: require_reason_and_task_ref
+resolution:
+  source_ref: aagf/docs/spec/stacks/comment-doc-profiles.yaml
+  resolution_order:
+    - project.context.governance.active_commenting_profile
+    - project.context.project.id -> profiles.stack_ids
+    - generic.commenting-v1
+  block_on_missing_profile: true

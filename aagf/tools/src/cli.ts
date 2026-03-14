@@ -37,6 +37,24 @@ type SectionSpec = {
   entries: SectionEntry[];
 };
 
+type RuleModuleSpec = {
+  version: number;
+  section: string;
+  entry: SectionEntry;
+};
+
+type RulesIndexEntry = {
+  id: string;
+  source: string;
+};
+
+type RulesIndexSpec = {
+  section: string;
+  version: number;
+  mode: "modular";
+  entries: RulesIndexEntry[];
+};
+
 type Section = {
   id: string;
   title: string;
@@ -188,6 +206,10 @@ type ProjectContextSpec = {
     decision: DetectionDecision;
     evidence: string[];
   };
+  governance: {
+    active_commenting_profile: string;
+    commenting_profiles_ref: string;
+  };
   notes?: string[];
 };
 
@@ -207,6 +229,10 @@ type ProfileLockSpec = {
     mode: string;
     overwrite: boolean;
     confirmed: boolean;
+  };
+  governance: {
+    active_commenting_profile: string;
+    commenting_profiles_ref: string;
   };
 };
 
@@ -229,6 +255,8 @@ const KIT_ROOT = process.cwd();
 const MANIFEST_PATH = path.join(KIT_ROOT, "docs/spec/manifests/docs.manifest.yaml");
 const MANIFEST_SCHEMA_PATH = path.join(KIT_ROOT, "docs/spec/schemas/docs-manifest.schema.json");
 const SECTION_SCHEMA_PATH = path.join(KIT_ROOT, "docs/spec/schemas/section-spec.schema.json");
+const RULE_MODULE_SCHEMA_PATH = path.join(KIT_ROOT, "docs/spec/schemas/rule-module.schema.json");
+const RULES_INDEX_SCHEMA_PATH = path.join(KIT_ROOT, "docs/spec/schemas/rules-index.schema.json");
 const TEMPLATE_DIR = path.join(KIT_ROOT, "tools/templates");
 const PROJECT_SPEC_DIR = path.join(KIT_ROOT, "docs/spec/project");
 const PROJECT_CONTEXT_PATH = path.join(PROJECT_SPEC_DIR, "context.yaml");
@@ -236,6 +264,7 @@ const PROJECT_STACK_DETECTION_PATH = path.join(PROJECT_SPEC_DIR, "stack-detectio
 const PROJECT_ENABLED_PACKS_PATH = path.join(PROJECT_SPEC_DIR, "enabled-packs.yaml");
 const PROJECT_OVERRIDES_PATH = path.join(PROJECT_SPEC_DIR, "overrides.yaml");
 const PROJECT_PROFILE_LOCK_PATH = path.join(PROJECT_SPEC_DIR, "profile.lock.yaml");
+const COMMENTING_PROFILES_REF = "aagf/docs/spec/stacks/comment-doc-profiles.yaml";
 
 function normalizeText(input: string): string {
   return input.replace(/\r\n/g, "\n").trimEnd() + "\n";
@@ -323,14 +352,21 @@ async function loadSections(manifest: DocsManifest): Promise<EnrichedSection[]> 
     const specDataPath = path.join(KIT_ROOT, section.spec_data);
 
     const sourceContent = (await readFile(sourcePath, "utf8")).trim();
-    const spec = await readYamlFile<SectionSpec>(specDataPath);
+    const rawSpec = await readYamlFile<Record<string, unknown>>(specDataPath);
+    let spec: SectionSpec;
 
-    await validateAgainstSchema(SECTION_SCHEMA_PATH, spec, section.spec_data);
+    if (isRulesIndexSpec(rawSpec)) {
+      await validateAgainstSchema(RULES_INDEX_SCHEMA_PATH, rawSpec, section.spec_data);
+      spec = await loadModularSectionSpec(section, rawSpec);
+    } else {
+      spec = rawSpec as SectionSpec;
+      await validateAgainstSchema(SECTION_SCHEMA_PATH, spec, section.spec_data);
 
-    if (spec.section !== section.id) {
-      throw new Error(
-        `Section mismatch: ${section.spec_data} declares section='${spec.section}', expected '${section.id}'.`
-      );
+      if (spec.section !== section.id) {
+        throw new Error(
+          `Section mismatch: ${section.spec_data} declares section='${spec.section}', expected '${section.id}'.`
+        );
+      }
     }
 
     sections.push({
@@ -341,6 +377,62 @@ async function loadSections(manifest: DocsManifest): Promise<EnrichedSection[]> 
   }
 
   return sections;
+}
+
+function isRulesIndexSpec(payload: unknown): payload is RulesIndexSpec {
+  if (!payload || typeof payload !== "object") {
+    return false;
+  }
+
+  const candidate = payload as Partial<RulesIndexSpec>;
+  return candidate.mode === "modular";
+}
+
+async function loadModularSectionSpec(
+  section: Section,
+  rulesIndex: RulesIndexSpec
+): Promise<SectionSpec> {
+  if (rulesIndex.section !== section.id) {
+    throw new Error(
+      `Section mismatch: ${section.spec_data} declares section='${rulesIndex.section}', expected '${section.id}'.`
+    );
+  }
+
+  const entries: SectionEntry[] = [];
+  const seenIds = new Set<string>();
+
+  for (const indexEntry of rulesIndex.entries) {
+    if (seenIds.has(indexEntry.id)) {
+      throw new Error(
+        `Rules index '${section.spec_data}' contains duplicate entry id '${indexEntry.id}'.`
+      );
+    }
+
+    const modulePath = path.join(KIT_ROOT, indexEntry.source);
+    const moduleSpec = await readYamlFile<RuleModuleSpec>(modulePath);
+    await validateAgainstSchema(RULE_MODULE_SCHEMA_PATH, moduleSpec, indexEntry.source);
+
+    if (moduleSpec.section !== section.id) {
+      throw new Error(
+        `Rule module '${indexEntry.source}' declares section='${moduleSpec.section}', expected '${section.id}'.`
+      );
+    }
+
+    if (moduleSpec.entry.id !== indexEntry.id) {
+      throw new Error(
+        `Rules index id mismatch: index has '${indexEntry.id}', but module '${indexEntry.source}' has '${moduleSpec.entry.id}'.`
+      );
+    }
+
+    entries.push(moduleSpec.entry);
+    seenIds.add(indexEntry.id);
+  }
+
+  return {
+    section: rulesIndex.section,
+    version: rulesIndex.version,
+    entries
+  };
 }
 
 function buildTemplateEnv(): nunjucks.Environment {
@@ -1065,15 +1157,30 @@ function inferLanguages(stackId: string): string[] {
   return [];
 }
 
+function resolveCommentingProfile(stackId: string): string {
+  if (stackId === "node-typescript") {
+    return "node-typescript.tsdoc-v1";
+  }
+  if (stackId === "php" || stackId === "laravel" || stackId === "symfony") {
+    return "php.phpdoc-v1";
+  }
+  if (stackId === "dart" || stackId === "flutter") {
+    return "dart.dartdoc-v1";
+  }
+  return "generic.commenting-v1";
+}
+
 function buildProjectContext(outcome: StackDetectionOutcome, projectRoot: string): ProjectContextSpec {
   void projectRoot;
   const projectRootValue = ".";
+  const projectId = outcome.selectedStack === "unknown" ? "manual-profile" : outcome.selectedStack;
+  const activeCommentingProfile = resolveCommentingProfile(outcome.selectedStack);
 
   return {
     version: 1,
     status: "active",
     project: {
-      id: outcome.selectedStack === "unknown" ? "manual-profile" : outcome.selectedStack,
+      id: projectId,
       root: projectRootValue,
       docs_installed: true,
       root_agents: {
@@ -1096,6 +1203,10 @@ function buildProjectContext(outcome: StackDetectionOutcome, projectRoot: string
       decision: outcome.decision,
       evidence: outcome.evidence
     },
+    governance: {
+      active_commenting_profile: activeCommentingProfile,
+      commenting_profiles_ref: COMMENTING_PROFILES_REF
+    },
     notes: [
       "Root AGENTS.md должен применяться только через merge-предложение.",
       "Dry-run является режимом по умолчанию."
@@ -1109,6 +1220,8 @@ function buildProfileLock(
   targets: GeneratorTarget[],
   confirmDetection: boolean
 ): ProfileLockSpec {
+  const activeCommentingProfile = resolveCommentingProfile(outcome.selectedStack);
+
   return {
     version: 1,
     locked: true,
@@ -1125,6 +1238,10 @@ function buildProfileLock(
       mode: "merge",
       overwrite: false,
       confirmed: confirmDetection
+    },
+    governance: {
+      active_commenting_profile: activeCommentingProfile,
+      commenting_profiles_ref: COMMENTING_PROFILES_REF
     }
   };
 }
