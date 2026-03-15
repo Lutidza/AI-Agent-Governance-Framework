@@ -2,6 +2,7 @@ version: 1
 section: core
 entry:
   id: AAGF-CORE-001
+  file_slug: declarative-first-source-of-truth
   title: Declarative-First Source of Truth
   intent: Все нормативные изменения должны начинаться в machine-readable слое.
   rules:

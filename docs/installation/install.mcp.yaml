@@ -99,8 +99,8 @@ expected_artifacts:
   - "aagf/docs/spec/project/context.yaml"
   - "aagf/docs/spec/project/profile.lock.yaml"
   - "AGENTS.md (from aagf/docs/install/AGENTS.md)"
-  - ".aiassistant/rules/README.md + .aiassistant/rules/<section>/<rule-id>.md"
-  - ".cursor/rules/README.md + .cursor/rules/<section>/<rule-id>.md"
+  - ".aiassistant/rules/README.md + .aiassistant/rules/<section>/<rule-id>-<file-slug>.md"
+  - ".cursor/rules/README.md + .cursor/rules/<section>/<rule-id>-<file-slug>.mdc"
 
 fallback_rules:
   - condition: "detect.decision == unknown OR detect.low_confidence == true"
@@ -109,4 +109,3 @@ fallback_rules:
     action: "Считай это ожидаемым до первого docs:sync."
   - condition: "windows.npm_blocked == true"
     action: "Используй npm.cmd вместо npm."
-

@@ -1,0 +1,42 @@
+version: 1
+section: adapters
+entry:
+  id: AAGF-ADAPTER-002
+  file_slug: docs-to-multi-target-ide-projection-mapping
+  title: Docs -> Multi-Target IDE Projection Mapping
+  intent: Формализовать правила построения переносимых adapter-пакетов для
+    JetBrains и Cursor.
+  rules:
+    - aagf/docs/adapters/jetbrains/** MUST агрегировать нормативные правила и
+      prompts из aagf/docs/spec/** для runtime `.aiassistant`.
+    - aagf/docs/adapters/cursor/** MUST агрегировать нормативные правила и
+      prompts из aagf/docs/spec/** для runtime `.cursor`.
+    - Multi-target adapter-проекции MUST использовать только переносимые
+      настройки без machine-specific данных.
+    - Runtime rules/prompts/workflows MUST использовать подтвержденный
+      `aagf/docs/spec/project/stack-context.yaml` как первичный входной
+      контекст.
+    - Runtime rules/prompts/workflows MUST учитывать `detection.status` и
+      `stack_context_ref` из `context.yaml`/`profile.lock.yaml`.
+    - Синхронизация в активные runtime-контуры MUST выполняться только через
+      target-aware sync (`docs:sync`) после явного подтверждения пользователя.
+  if_then:
+    - if: Workflow spec содержит prompts
+      then: Prompt-блок MUST быть включен в prompts-проекции каждого поддерживаемого
+        target.
+    - if: Adapter-проекция конфликтует с source
+      then: Source MUST иметь приоритет, а adapter MUST быть перегенерирован.
+    - if: stack-context отсутствует или имеет статус pending-confirm
+      then: Runtime-проекция MUST требовать confirm/edit и MUST NOT считать профиль
+        подтвержденным.
+    - if: Запрошена синхронизация в `/.aiassistant/**` или `/.cursor/**`
+      then: Агент MUST сначала выполнить `docs:sync:check`, показать изменения и
+        только после подтверждения выполнять `docs:sync`.
+  checks:
+    - Проверить, что rules/prompts отражают актуальный source для jetbrains и
+      cursor.
+    - Проверить, что runtime-проекции содержат ссылку на подтвержденный
+      stack-context и confirm/edit требования.
+    - Проверить отсутствие абсолютных путей и локальных зависимостей.
+    - Проверить, что runtime-изменения выполнены через sync-процесс, а не
+      ручными правками.

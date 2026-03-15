@@ -8,7 +8,7 @@
 ## Источник
 
 - Spec-source: [`docs/spec/adapters/README.md`](../../spec/adapters/README.md)
-- Spec-data: [`docs/spec/adapters/mappings.yaml`](../../spec/adapters/mappings.yaml)
+- Spec-data: [`docs/spec/adapters/rules.index.yaml`](../../spec/adapters/rules.index.yaml)
 
 ## Операционные записи
 ### AAGF-ADAPTER-001 - Docs -> Human Projection Mapping

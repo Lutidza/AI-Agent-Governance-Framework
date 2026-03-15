@@ -9,6 +9,7 @@
     "docs:check": "tsx tools/src/cli.ts check",
     "docs:test": "tsx tools/src/cli.ts test",
     "docs:test:detect": "tsx tools/src/tests/detect-contract.ts",
+    "docs:test:rules": "tsx tools/src/tests/rules-contract.ts",
     "docs:sync": "tsx tools/src/cli.ts sync",
     "docs:sync:check": "tsx tools/src/cli.ts sync --check",
     "docs:detect-stack": "tsx tools/src/cli.ts detect-stack",

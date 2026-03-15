@@ -1,0 +1,43 @@
+---
+description: "{{ rule_entry.entry.id }} {{ rule_entry.entry.title }}"
+globs:
+  - "**/*"
+alwaysApply: true
+---
+<!-- GENERATED FILE: DO NOT EDIT MANUALLY -->
+<!-- Source: {{ rule_entry.section_source }} -->
+
+# {{ rule_entry.entry.id }} {{ rule_entry.entry.title }}
+
+Раздел source-спецификации: `{{ rule_entry.section_id }}`
+
+Назначение: {{ rule_entry.entry.intent }}
+
+## Нормативные правила
+{% for rule in rule_entry.entry.rules %}
+- RULE: {{ rule }}
+{% endfor %}
+
+## Условия IF -> THEN
+{% for condition in rule_entry.entry.if_then %}
+- IF {{ condition.if }} THEN {{ condition.then }}
+{% endfor %}
+
+## Контрольные проверки
+{% for check in rule_entry.entry.checks %}
+- {{ check }}
+{% endfor %}
+
+{% if rule_entry.entry.steps and rule_entry.entry.steps.length > 0 %}
+## Шаги workflow
+{% for step in rule_entry.entry.steps %}
+- {{ step }}
+{% endfor %}
+{% endif %}
+
+{% if rule_entry.entry.handoff and rule_entry.entry.handoff.length > 0 %}
+## Handoff
+{% for handoff in rule_entry.entry.handoff %}
+- {{ handoff }}
+{% endfor %}
+{% endif %}

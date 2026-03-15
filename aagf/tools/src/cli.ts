@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, unlink, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
 import path from "node:path";
@@ -23,6 +23,7 @@ type PromptBlueprint = {
 
 type SectionEntry = {
   id: string;
+  file_slug: string;
   title: string;
   intent: string;
   rules: string[];
@@ -77,6 +78,7 @@ type GeneratorTarget = {
   adapter_root: string;
   runtime_dir: string;
   runtime_rules: string;
+  runtime_rule_extension: "md" | "mdc";
   runtime_prompts: string;
 };
 
@@ -85,7 +87,9 @@ type TargetRuleEntryProjection = {
   section_title: string;
   section_source: string;
   entry: SectionEntry;
+  runtime_file_name: string;
   runtime_path: string;
+  human_file_name: string;
   human_path: string;
 };
 
@@ -343,12 +347,18 @@ type ProfileLockSpec = {
   };
 };
 
-type SyncOperation = {
-  kind: "create" | "update";
-  relPath: string;
-  destPath: string;
-  content: string;
-};
+type SyncOperation =
+  | {
+      kind: "create" | "update";
+      relPath: string;
+      destPath: string;
+      content: string;
+    }
+  | {
+      kind: "delete";
+      relPath: string;
+      destPath: string;
+    };
 
 type SyncPlan = {
   target: GeneratorTarget;
@@ -476,21 +486,14 @@ async function loadSections(manifest: DocsManifest): Promise<EnrichedSection[]> 
 
     const sourceContent = (await readFile(sourcePath, "utf8")).trim();
     const rawSpec = await readYamlFile<Record<string, unknown>>(specDataPath);
-    let spec: SectionSpec;
-
-    if (isRulesIndexSpec(rawSpec)) {
-      await validateAgainstSchema(RULES_INDEX_SCHEMA_PATH, rawSpec, section.spec_data);
-      spec = await loadModularSectionSpec(section, rawSpec);
-    } else {
-      spec = rawSpec as SectionSpec;
-      await validateAgainstSchema(SECTION_SCHEMA_PATH, spec, section.spec_data);
-
-      if (spec.section !== section.id) {
-        throw new Error(
-          `Section mismatch: ${section.spec_data} declares section='${spec.section}', expected '${section.id}'.`
-        );
-      }
+    if (!isRulesIndexSpec(rawSpec)) {
+      throw new Error(
+        `Section '${section.id}' must be modular. Expected '${section.spec_data}' in rules.index.yaml format (mode='modular').`
+      );
     }
+
+    await validateAgainstSchema(RULES_INDEX_SCHEMA_PATH, rawSpec, section.spec_data);
+    const spec = await loadModularSectionSpec(section, rawSpec);
 
     sections.push({
       ...section,
@@ -499,7 +502,30 @@ async function loadSections(manifest: DocsManifest): Promise<EnrichedSection[]> 
     });
   }
 
+  for (const section of sections) {
+    assertSectionEntriesUnique(section.spec.entries, section.id);
+  }
+
   return sections;
+}
+
+function assertSectionEntriesUnique(entries: SectionEntry[], sectionId: string): void {
+  const seenIds = new Set<string>();
+  const seenSlugs = new Set<string>();
+
+  for (const entry of entries) {
+    if (seenIds.has(entry.id)) {
+      throw new Error(`Section '${sectionId}' contains duplicate rule id '${entry.id}'.`);
+    }
+    seenIds.add(entry.id);
+
+    if (seenSlugs.has(entry.file_slug)) {
+      throw new Error(
+        `Section '${sectionId}' contains duplicate file_slug '${entry.file_slug}'.`
+      );
+    }
+    seenSlugs.add(entry.file_slug);
+  }
 }
 
 function isRulesIndexSpec(payload: unknown): payload is RulesIndexSpec {
@@ -523,6 +549,7 @@ async function loadModularSectionSpec(
 
   const entries: SectionEntry[] = [];
   const seenIds = new Set<string>();
+  const indexedSources = new Set<string>();
 
   for (const indexEntry of rulesIndex.entries) {
     if (seenIds.has(indexEntry.id)) {
@@ -549,6 +576,30 @@ async function loadModularSectionSpec(
 
     entries.push(moduleSpec.entry);
     seenIds.add(indexEntry.id);
+    indexedSources.add(indexEntry.source.replace(/\\/g, "/"));
+  }
+
+  const sectionDirRel = path.posix.dirname(section.spec_data);
+  const rulesDirRel = `${sectionDirRel}/rules`;
+  const rulesDirAbs = path.join(KIT_ROOT, rulesDirRel);
+  if (await pathExists(rulesDirAbs)) {
+    const ruleFiles = await readdir(rulesDirAbs, { withFileTypes: true });
+    for (const file of ruleFiles) {
+      if (!file.isFile()) {
+        continue;
+      }
+
+      if (!/\.ya?ml$/i.test(file.name)) {
+        continue;
+      }
+
+      const relSource = `${rulesDirRel}/${file.name}`.replace(/\\/g, "/");
+      if (!indexedSources.has(relSource)) {
+        throw new Error(
+          `Rules index '${section.spec_data}' does not reference module '${relSource}'.`
+        );
+      }
+    }
   }
 
   return {
@@ -641,21 +692,38 @@ function buildTargetRuleEntries(
   sections: EnrichedSection[]
 ): TargetRuleEntryProjection[] {
   const rulesDir = path.posix.dirname(target.runtime_rules);
+  const extension = target.runtime_rule_extension ?? "md";
 
   return sections.flatMap((section) =>
     section.spec.entries.map((entry) => {
-      const runtimePath = `${rulesDir}/${section.id}/${entry.id}.md`;
+      const runtimeFileName = `${entry.id}-${entry.file_slug}.${extension}`;
+      const runtimePath = `${rulesDir}/${section.id}/${runtimeFileName}`;
+      const humanPath = toHumanAdapterPath(runtimePath, target.runtime_dir);
 
       return {
         section_id: section.id,
         section_title: section.title,
         section_source: section.source,
         entry,
+        runtime_file_name: runtimeFileName,
         runtime_path: runtimePath,
-        human_path: toHumanAdapterPath(runtimePath, target.runtime_dir)
+        human_file_name: path.posix.basename(humanPath),
+        human_path: humanPath
       };
     })
   );
+}
+
+function resolveRuntimeTemplateDir(targetId: string): "jetbrains" | "cursor" {
+  if (targetId === "jetbrains") {
+    return "jetbrains";
+  }
+
+  if (targetId === "cursor") {
+    return "cursor";
+  }
+
+  throw new Error(`Unsupported runtime template target '${targetId}'.`);
 }
 
 function renderOutputs(
@@ -683,6 +751,7 @@ function renderOutputs(
   }
 
   for (const target of targets) {
+    const runtimeTemplateDir = resolveRuntimeTemplateDir(target.id);
     const humanRuntimeDir = toHumanRuntimeDir(target.runtime_dir);
     const targetRuleEntries = buildTargetRuleEntries(target, sections);
     const targetContext = {
@@ -696,18 +765,18 @@ function renderOutputs(
 
     outputs.set(
       target.adapter_root,
-      env.render("aiassistant/root.md.njk", targetContext)
+      env.render(`${runtimeTemplateDir}/root.md.njk`, targetContext)
     );
 
     outputs.set(
       target.runtime_rules,
-      env.render("aiassistant/rules.md.njk", targetContext)
+      env.render(`${runtimeTemplateDir}/rules.md.njk`, targetContext)
     );
 
     for (const ruleEntry of targetRuleEntries) {
       outputs.set(
         ruleEntry.runtime_path,
-        env.render("aiassistant/rule-entry.md.njk", {
+        env.render(`${runtimeTemplateDir}/rule-entry.md.njk`, {
           ...targetContext,
           rule_entry: ruleEntry
         })
@@ -716,7 +785,7 @@ function renderOutputs(
 
     outputs.set(
       target.runtime_prompts,
-      env.render("aiassistant/prompts.md.njk", targetContext)
+      env.render(`${runtimeTemplateDir}/prompts.md.njk`, targetContext)
     );
 
     outputs.set(
@@ -758,6 +827,7 @@ async function writeOutputs(outputs: Map<string, string>): Promise<void> {
 
 async function checkDrift(outputs: Map<string, string>): Promise<string[]> {
   const drifted: string[] = [];
+  const expectedPaths = new Set(outputs.keys());
 
   for (const [relativePath, generatedContent] of outputs.entries()) {
     const absolutePath = path.join(KIT_ROOT, relativePath);
@@ -772,6 +842,36 @@ async function checkDrift(outputs: Map<string, string>): Promise<string[]> {
 
     if (normalizeText(currentContent) !== normalizeText(generatedContent)) {
       drifted.push(relativePath);
+    }
+  }
+
+  const generatedRoots = new Set<string>();
+  for (const relativePath of outputs.keys()) {
+    if (relativePath.startsWith("docs/human/")) {
+      generatedRoots.add("docs/human");
+      continue;
+    }
+
+    if (relativePath.startsWith("docs/adapters/")) {
+      const segments = relativePath.split("/");
+      if (segments.length >= 3) {
+        generatedRoots.add(`docs/adapters/${segments[2]}`);
+      }
+    }
+  }
+
+  for (const rootRelPath of generatedRoots) {
+    const rootAbsPath = path.join(KIT_ROOT, rootRelPath);
+    if (!(await pathExists(rootAbsPath))) {
+      continue;
+    }
+
+    const snapshot = await collectFileSnapshot(rootAbsPath);
+    for (const snapshotRelPath of snapshot.keys()) {
+      const normalizedRelPath = `${rootRelPath}/${snapshotRelPath}`.replace(/\\/g, "/");
+      if (!expectedPaths.has(normalizedRelPath)) {
+        drifted.push(normalizedRelPath);
+      }
     }
   }
 
@@ -1110,21 +1210,16 @@ async function buildSyncPlan(target: GeneratorTarget, projectRoot: string): Prom
   const destinationDir = getTargetRuntimeDestinationDir(target, projectRoot);
 
   const sourceFiles = await collectFileSnapshot(sourceDir);
+  const destinationFiles =
+    (await pathExists(destinationDir)) ? await collectFileSnapshot(destinationDir) : new Map<string, string>();
   const operations: SyncOperation[] = [];
   let unchangedCount = 0;
 
   for (const [relPath, sourceContent] of sourceFiles.entries()) {
     const destinationPath = path.join(destinationDir, ...relPath.split("/"));
-    let destinationContent = "";
-    let exists = true;
+    const destinationContent = destinationFiles.get(relPath);
 
-    try {
-      destinationContent = await readFile(destinationPath, "utf8");
-    } catch {
-      exists = false;
-    }
-
-    if (!exists) {
+    if (destinationContent === undefined) {
       operations.push({
         kind: "create",
         relPath,
@@ -1145,6 +1240,18 @@ async function buildSyncPlan(target: GeneratorTarget, projectRoot: string): Prom
     }
 
     unchangedCount += 1;
+  }
+
+  for (const relPath of destinationFiles.keys()) {
+    if (sourceFiles.has(relPath)) {
+      continue;
+    }
+
+    operations.push({
+      kind: "delete",
+      relPath,
+      destPath: path.join(destinationDir, ...relPath.split("/"))
+    });
   }
 
   return {
@@ -1180,6 +1287,16 @@ async function applySyncPlans(plans: SyncPlan[]): Promise<number> {
 
   for (const plan of plans) {
     for (const operation of plan.operations) {
+      if (operation.kind === "delete") {
+        try {
+          await unlink(operation.destPath);
+          applied += 1;
+        } catch {
+          // ignore missing destination during apply
+        }
+        continue;
+      }
+
       await mkdir(path.dirname(operation.destPath), { recursive: true });
       await writeFile(operation.destPath, normalizeText(operation.content), "utf8");
       applied += 1;

@@ -3,7 +3,7 @@
 
 # rules (human projection)
 
-Этот документ является человеко-читаемой проекцией индекса target-runtime rules для `{{ target.id }}`.
+Человеко-читаемая проекция индекса target-runtime rules для `{{ target.id }}`.
 
 ## Source mapping
 
@@ -11,25 +11,14 @@
 - Adapter runtime index source: `{{ target.runtime_rules }}`
 - Runtime compatibility: `{{ target.runtime_dir }}/rules/**`
 - Human projection path: `runtime/{{ target.human_runtime_dir }}/rules/**`
-
-## Обязательные условия
-
-- Правила MUST извлекаться из `docs/spec/**`.
-- Правила MUST NOT вводить новые нормативные пункты, отсутствующие в source-слое.
-- IF runtime rules расходятся с source-слоем THEN приоритет MUST быть у `docs/spec/**`.
-
-## Модульная структура
-
-- Runtime rules MUST быть разбиты на отдельные rule-entry файлы.
-- Human projection MUST повторять модульную структуру runtime-слоя.
-- IF отсутствует entry-файл для source-правила THEN это MUST считаться drift.
+- Entry naming: `<rule-id>-<file-slug>.{{ target.runtime_rule_extension }}`
 
 ## Карта rule-entry файлов по секциям
 {% for section in sections %}
 ### {{ section.title }} (`{{ section.id }}`)
 {% for rule_entry in rule_entries %}
 {% if rule_entry.section_id == section.id %}
-- [`{{ rule_entry.entry.id }}` {{ rule_entry.entry.title }}](./{{ rule_entry.section_id }}/{{ rule_entry.entry.id }}.md)
+- [`{{ rule_entry.entry.id }}` {{ rule_entry.entry.title }}](./{{ rule_entry.section_id }}/{{ rule_entry.human_file_name }})
 {% endif %}
 {% endfor %}
 {% endfor %}

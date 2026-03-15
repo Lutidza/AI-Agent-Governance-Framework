@@ -2,6 +2,7 @@ version: 1
 section: core
 entry:
   id: AAGF-CORE-003
+  file_slug: stack-profiled-commenting-contract
   title: Stack-Profiled Commenting Contract
   intent: Универсальные требования к комментариям задаются в core, а формат и теги берутся из stack-карты профилей.
   rules:

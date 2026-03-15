@@ -1,0 +1,25 @@
+version: 1
+section: adapters
+entry:
+  id: AAGF-ADAPTER-001
+  file_slug: docs-to-human-projection-mapping
+  title: Docs -> Human Projection Mapping
+  intent: Формализовать правила преобразования spec-содержимого в
+    человеко-читаемые документы.
+  rules:
+    - Генератор MUST строить aagf/docs/human/** из YAML-спеков и
+      manifest-конфигурации.
+    - Генератор MUST строить aagf/docs/human/adapters/<target>/** как
+      человеко-читаемую проекцию target-runtime adapter-слоя.
+    - Каждый generated документ MUST содержать ссылку на source.
+    - Human-проекция MUST NOT добавлять нормативные правила, отсутствующие в
+      source.
+  if_then:
+    - if: В human-слое обнаружен новый нормативный пункт без source
+      then: Пункт MUST быть удален или перенесен в source.
+    - if: Source-файл переименован
+      then: Generator mapping MUST быть обновлен в manifest до следующей генерации.
+  checks:
+    - Проверить валидность manifest и section specs.
+    - Проверить корректность ссылок source -> derived.
+    - Проверить наличие human-проекций для каждого target из manifest.

@@ -8,7 +8,7 @@
 ## Источник
 
 - Spec-source: [`docs/spec/workflows/README.md`](../../spec/workflows/README.md)
-- Spec-data: [`docs/spec/workflows/workflows.yaml`](../../spec/workflows/workflows.yaml)
+- Spec-data: [`docs/spec/workflows/rules.index.yaml`](../../spec/workflows/rules.index.yaml)
 
 ## Операционные записи
 ### AAGF-WF-001 - Plan-First Change Workflow

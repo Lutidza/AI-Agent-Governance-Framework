@@ -20,7 +20,7 @@
 
 ## Prompt Blueprints из workflow-spec
 {% if workflow_prompts.length == 0 %}
-Нет доступных prompt-blueprints. Добавьте блок `prompts` в `docs/spec/workflows/workflows.yaml`.
+Нет доступных prompt-blueprints. Добавьте блок `prompts` в соответствующий модуль `docs/spec/workflows/rules/*.yaml`.
 {% else %}
 {% for prompt in workflow_prompts %}
 ### {{ prompt.id }} - {{ prompt.title }}

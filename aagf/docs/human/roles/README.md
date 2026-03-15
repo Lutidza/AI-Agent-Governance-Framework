@@ -8,7 +8,7 @@
 ## Источник
 
 - Spec-source: [`docs/spec/roles/README.md`](../../spec/roles/README.md)
-- Spec-data: [`docs/spec/roles/roles.yaml`](../../spec/roles/roles.yaml)
+- Spec-data: [`docs/spec/roles/rules.index.yaml`](../../spec/roles/rules.index.yaml)
 
 ## Операционные записи
 ### AAGF-ROLE-001 - Orchestrator (Дирижер)

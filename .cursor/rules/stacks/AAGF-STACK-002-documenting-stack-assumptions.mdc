@@ -1,0 +1,27 @@
+---
+description: "AAGF-STACK-002 Документирование стековых допущений"
+globs:
+  - "**/*"
+alwaysApply: true
+---
+<!-- GENERATED FILE: DO NOT EDIT MANUALLY -->
+<!-- Source: docs/spec/stacks/README.md -->
+
+# AAGF-STACK-002 Документирование стековых допущений
+
+Раздел source-спецификации: `stacks`
+
+Назначение: Для каждого стека должны быть формализованы ограничения, риски и критерии валидации.
+
+## Нормативные правила
+- RULE: Stack-spec MUST включать ограничения по зависимостям и версионированию.
+- RULE: Stack-spec MUST включать требования к тестированию и quality gates.
+- RULE: Stack-spec MUST использовать единый формат rule IDs и IF -> THEN условий.
+
+## Условия IF -> THEN
+- IF В stack-spec добавлена новая зависимость THEN MUST быть добавлены проверка совместимости и migration notes.
+- IF Stack-изменение влияет на CI/CD THEN Изменение MUST быть отмечено как risk-critical и требовать подтверждения.
+
+## Контрольные проверки
+- Проверить наличие rule IDs, checks и risk notes.
+- Проверить согласованность stack-spec с workflow и role спецификациями.

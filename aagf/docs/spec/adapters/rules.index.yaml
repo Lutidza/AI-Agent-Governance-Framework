@@ -1,0 +1,8 @@
+section: adapters
+version: 1
+mode: modular
+entries:
+  - id: AAGF-ADAPTER-001
+    source: docs/spec/adapters/rules/AAGF-ADAPTER-001.yaml
+  - id: AAGF-ADAPTER-002
+    source: docs/spec/adapters/rules/AAGF-ADAPTER-002.yaml

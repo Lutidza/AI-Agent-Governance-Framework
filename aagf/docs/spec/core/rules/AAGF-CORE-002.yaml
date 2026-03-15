@@ -2,6 +2,7 @@ version: 1
 section: core
 entry:
   id: AAGF-CORE-002
+  file_slug: contour-isolation
   title: Контурная изоляция
   intent: Слои root/meta, docs и runtime adapters должны оставаться разделенными.
   rules:

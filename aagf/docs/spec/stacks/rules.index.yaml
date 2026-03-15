@@ -1,0 +1,8 @@
+section: stacks
+version: 1
+mode: modular
+entries:
+  - id: AAGF-STACK-001
+    source: docs/spec/stacks/rules/AAGF-STACK-001.yaml
+  - id: AAGF-STACK-002
+    source: docs/spec/stacks/rules/AAGF-STACK-002.yaml

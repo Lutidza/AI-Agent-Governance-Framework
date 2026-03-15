@@ -1,0 +1,46 @@
+version: 1
+section: workflows
+entry:
+  id: AAGF-WF-002
+  file_slug: spec-driven-documentation-workflow
+  title: Spec-Driven Documentation Workflow
+  intent: Любое изменение документации должно проходить через aagf/docs/spec с
+    обязательной синхронизацией производных слоев.
+  rules:
+    - Нормативные изменения MUST вноситься сначала в aagf/docs/spec/**.
+    - После изменений MUST выполняться docs:generate и docs:check.
+    - Drift между source и derived слоями MUST NOT оставаться в репозитории.
+  if_then:
+    - if: Изменение внесено только в generated файл
+      then: Агент MUST перенести изменение в соответствующий spec-файл и
+        перегенерировать слой.
+    - if: docs:check возвращает drift
+      then: Изменение MUST считаться незавершенным до устранения drift.
+  checks:
+    - Проверить успех команд docs:validate, docs:generate, docs:check.
+    - Проверить, что generated файлы соответствуют обновленному source.
+  steps:
+    - Обновить нужный spec-файл в aagf/docs/spec/**.
+    - Выполнить генерацию производных слоев.
+    - Проверить отсутствие drift и корректность отображения.
+    - Передать handoff с результатом проверок.
+  handoff:
+    - Список измененных spec-файлов.
+    - Список сгенерированных файлов.
+    - Результаты validate/generate/check.
+  prompts:
+    - id: AAGF-PROMPT-SPEC-SYNC
+      title: Spec Sync Enforcement
+      objective: Гарантировать, что документация обновляется через source-слой и
+        проходит drift-контроль.
+      template: >
+        Роль: maintainer документации.
+
+        Шаг 1: Обнови source-правила в aagf/docs/spec/**.
+
+        Шаг 2: Запусти docs:generate.
+
+        Шаг 3: Запусти docs:check.
+
+        Шаг 4: Подготовь handoff с перечнем обновленных артефактов и статусом
+        drift.

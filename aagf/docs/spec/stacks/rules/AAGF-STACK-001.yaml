@@ -1,0 +1,20 @@
+version: 1
+section: stacks
+entry:
+  id: AAGF-STACK-001
+  file_slug: stack-pack-replaceable-module
+  title: Stack Pack как заменяемый модуль
+  intent: Стековый блок должен заменяться без изменения core-политик.
+  rules:
+    - Stack-spec MUST описывать только технологические требования конкретного
+      стека.
+    - Stack-spec MUST NOT изменять core-инварианты governance-системы.
+    - Замена stack pack MAY выполняться без изменений в core/**.
+  if_then:
+    - if: Требуется изменить правила тестирования для конкретного стека
+      then: Изменение MUST вноситься в stack-spec, а не в core-политики.
+    - if: Stack-spec вводит правило, конфликтующее с core
+      then: Конфликт MUST быть эскалирован и разрешен через rule precedence.
+  checks:
+    - Проверить, что изменения ограничены stack-слоем.
+    - Проверить, что core-политики остаются неизменными.

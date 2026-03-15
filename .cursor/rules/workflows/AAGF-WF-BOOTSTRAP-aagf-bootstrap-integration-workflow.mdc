@@ -1,0 +1,56 @@
+---
+description: "AAGF-WF-BOOTSTRAP AAGF Bootstrap Integration Workflow"
+globs:
+  - "**/*"
+alwaysApply: true
+---
+<!-- GENERATED FILE: DO NOT EDIT MANUALLY -->
+<!-- Source: docs/spec/workflows/README.md -->
+
+# AAGF-WF-BOOTSTRAP AAGF Bootstrap Integration Workflow
+
+Раздел source-спецификации: `workflows`
+
+Назначение: Интеграция AAGF в новый или существующий проект должна выполняться как управляемый протокол с явными фазами, confirm-gates и lock-конфигурацией.
+
+## Нормативные правила
+- RULE: Workflow MUST выполняться по фазам Install -> Detect -> Confirm -> Compose -> Generate -> Sync -> Lock.
+- RULE: Install MUST подключать aagf/ в проект и MUST заменять root AGENTS.md install-шаблоном `aagf/docs/install/AGENTS.md` через явный dry-run/apply.
+- RULE: Detect MUST выполняться через MCP tool `detect_stack_deep` и MUST публиковать `detect-started` с `project-root`, `detector-id`, `session-id`.
+- RULE: Detect MUST формировать глубокий `stack-context` по уровням (`os/server/runtime/languages/frameworks/libraries/packages/databases/cache/messaging/ci/deploy`) с `id`, `version`, `confidence`, `evidence`, `source`.
+- RULE: Confirm MUST требовать явное действие `confirm` или `edit`; bootstrap MUST NOT продолжаться без прохождения confirm/edit gate.
+- RULE: IF выбран `edit` THEN правки MUST сохраняться в `aagf/docs/spec/project/stack-overrides.yaml` и MUST быть применены к итоговому `stack-context` перед Lock.
+- RULE: Compose MUST формировать enabled packs и overrides до фазы Generate.
+- RULE: Generate MUST собирать aagf/docs/human/** и aagf/docs/adapters/** только из aagf/docs/spec/**.
+- RULE: Sync MUST выполняться только после явного подтверждения пользователя и только через target-aware sync-процесс.
+- RULE: Lock MUST фиксировать итоговую конфигурацию проекта в `aagf/docs/spec/project/profile.lock.yaml` и MUST записывать `context.yaml`/`profile.lock.yaml` только после confirm/edit.
+- RULE: Runtime rules/prompts/workflows MUST использовать подтвержденный `aagf/docs/spec/project/stack-context.yaml` как входной контекст.
+
+## Условия IF -> THEN
+- IF Detect вернул unknown или low-confidence элементы THEN Агент MUST опубликовать structured summary (`stack.*`, `unknown-levels`, `low-confidence`) и MUST запросить explicit confirm/edit.
+- IF Detection action (`confirm`/`edit`) отсутствует THEN Bootstrap MUST остановиться на phase Confirm без перехода в Compose/Generate/Lock.
+- IF Специалист выбрал edit THEN Агент MUST сохранить правки в stack-overrides и MUST пересчитать итоговый stack-context до lock.
+- IF Запрошена синхронизация runtime-контуров THEN Агент MUST сначала выполнить dry-run (`docs:sync:check`) и MUST применять sync только после явного подтверждения.
+- IF Runtime-адаптеры не имеют подтвержденного stack-context THEN Агент MUST NOT использовать не подтвержденный профиль как active для rules/prompts/workflows.
+
+## Контрольные проверки
+- Проверить наличие aagf/docs/spec/project/context.yaml, stack-context.yaml, stack-overrides.yaml, stack-detection.yaml, enabled-packs.yaml, overrides.yaml и profile.lock.yaml.
+- Проверить, что detect-результат содержит session-id, evidence, confidence, decision и stack_context_ref.
+- Проверить, что Generate выполняется только из aagf/docs/spec/** без ручных правок derived-слоев.
+- Проверить, что runtime sync прошел через confirm gate.
+- Проверить, что lock-файл зафиксировал выбранный профиль, status confirm/edit и включенные packs.
+
+## Шаги workflow
+- Install: добавить aagf/ и заменить root AGENTS.md install-шаблоном через dry-run/apply.
+- Detect: запустить MCP `detect_stack_deep`, опубликовать detect-started и вывести structured summary результата.
+- Confirm: запросить explicit confirm/edit; при edit сохранить stack-overrides и пересчитать stack-context.
+- Compose: выбрать packs и локальные overrides.
+- Generate: собрать aagf/docs/human/** и aagf/docs/adapters/**.
+- Sync: синхронизировать runtime-цели только после явного подтверждения.
+- Lock: зафиксировать профиль и stack metadata в context/profile.lock только после confirm/edit.
+
+## Handoff
+- Результат Detect: session-id, выбранный стек, confidence, evidence, decision и stack_context_ref.
+- Набор активированных packs и overrides.
+- Статус Generate/Sync и перечень измененных файлов.
+- Состояние context/profile.lock и рекомендации для следующего цикла.

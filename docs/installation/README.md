@@ -7,6 +7,7 @@
 
 - Ubuntu (`bash`)
 - Windows (`PowerShell`)
+- Migration notes по неймингу rules: [`rules-migration-notes.md`](./rules-migration-notes.md)
 
 ## Общий Операционный Контракт
 
@@ -141,8 +142,8 @@ npm.cmd run docs:sync -- --target all
 - `aagf/docs/spec/project/context.yaml`
 - `aagf/docs/spec/project/profile.lock.yaml`
 - `AGENTS.md` в корне целевого проекта (из `aagf/docs/install/AGENTS.md`)
-- `.aiassistant/rules/README.md` и `.aiassistant/rules/<section>/<rule-id>.md`
-- `.cursor/rules/README.md` и `.cursor/rules/<section>/<rule-id>.md`
+- `.aiassistant/rules/README.md` и `.aiassistant/rules/<section>/<rule-id>-<file-slug>.md`
+- `.cursor/rules/README.md` и `.cursor/rules/<section>/<rule-id>-<file-slug>.mdc`
 
 ## Типовые Проблемы
 

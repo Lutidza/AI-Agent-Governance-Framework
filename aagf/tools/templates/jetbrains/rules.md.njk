@@ -1,0 +1,22 @@
+<!-- GENERATED FILE: DO NOT EDIT MANUALLY -->
+<!-- Source: docs/spec/manifests/docs.manifest.yaml -->
+
+# rules
+
+Индекс rule-entry артефактов docs-контура для target `{{ target.id }}`.
+
+## Source Mapping
+
+- Source of truth: `docs/spec/**`
+- Runtime path: `{{ target.runtime_dir }}/rules/**`
+- Entry naming: `<rule-id>-<file-slug>.{{ target.runtime_rule_extension }}`
+
+## Карта rule-файлов по source-спецификациям
+{% for section in sections %}
+### {{ section.id }}
+{% for rule_entry in rule_entries %}
+{% if rule_entry.section_id == section.id %}
+- [`{{ rule_entry.entry.id }}` {{ rule_entry.entry.title }}](./{{ rule_entry.section_id }}/{{ rule_entry.runtime_file_name }})
+{% endif %}
+{% endfor %}
+{% endfor %}

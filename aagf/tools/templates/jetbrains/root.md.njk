@@ -1,0 +1,28 @@
+<!-- GENERATED FILE: DO NOT EDIT MANUALLY -->
+<!-- Source: docs/spec/manifests/docs.manifest.yaml -->
+
+# docs/adapters/{{ target.id }} - adapter package
+
+Этот каталог хранит переносимые настройки и шаблоны для ИИ-среды, относящиеся к docs-контуру.
+
+## Назначение
+
+- `docs/adapters/{{ target.id }}/**` MUST содержать только переносимые артефакты.
+- `docs/adapters/{{ target.id }}/**` MUST NOT зависеть от локального окружения и абсолютных путей.
+- `docs/adapters/{{ target.id }}/**` MUST синхронизироваться с `docs/spec/**`.
+- Runtime-проекция MUST быть совместима с `{{ target.runtime_dir }}/**`.
+
+## Разделы
+
+- [runtime/{{ target.runtime_dir }}/rules/README.md](runtime/{{ target.runtime_dir }}/rules/README.md)
+- [runtime/{{ target.runtime_dir }}/prompts/README.md](runtime/{{ target.runtime_dir }}/prompts/README.md)
+
+## Метаданные генерации
+
+- Manifest: `{{ manifest.id }}`
+- Version: `{{ manifest.version }}`
+- Target: `{{ target.id }}`
+- Sections: `{{ stats.sections }}`
+- Entries: `{{ stats.entries }}`
+- Rules: `{{ stats.rules }}`
+- Prompts: `{{ stats.prompts }}`

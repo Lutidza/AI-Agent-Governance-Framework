@@ -24,7 +24,7 @@
 
 ## Runtime artifacts layout
 
-- Runtime rules MUST использовать индекс `rules/README.md` и отдельные rule-entry файлы `rules/<section>/<rule-id>.md`.
+- Runtime rules MUST использовать индекс `rules/README.md` и отдельные rule-entry файлы `rules/<section>/<rule-id>-<file-slug>.<ext>`.
 - IF в runtime присутствует только монолитный `rules/README.md` без модульных entry-файлов THEN агент MUST считать это drift и MUST запросить перегенерацию/синхронизацию.
 - Runtime prompts MUST оставаться в `prompts/README.md` соответствующего target-runtime каталога.
 

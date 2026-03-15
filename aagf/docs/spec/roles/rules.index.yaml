@@ -1,0 +1,8 @@
+section: roles
+version: 1
+mode: modular
+entries:
+  - id: AAGF-ROLE-001
+    source: docs/spec/roles/rules/AAGF-ROLE-001.yaml
+  - id: AAGF-ROLE-002
+    source: docs/spec/roles/rules/AAGF-ROLE-002.yaml

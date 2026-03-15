@@ -8,7 +8,7 @@
 ## Источник
 
 - Spec-source: [`docs/spec/stacks/README.md`](../../spec/stacks/README.md)
-- Spec-data: [`docs/spec/stacks/profiles.yaml`](../../spec/stacks/profiles.yaml)
+- Spec-data: [`docs/spec/stacks/rules.index.yaml`](../../spec/stacks/rules.index.yaml)
 
 ## Операционные записи
 ### AAGF-STACK-001 - Stack Pack как заменяемый модуль

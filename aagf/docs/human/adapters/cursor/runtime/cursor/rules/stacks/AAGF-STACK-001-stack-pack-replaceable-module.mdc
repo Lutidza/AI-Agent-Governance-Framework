@@ -1,0 +1,33 @@
+<!-- GENERATED FILE: DO NOT EDIT MANUALLY -->
+<!-- Source: docs/spec/stacks/README.md + docs/adapters/cursor/runtime/.cursor/rules/stacks/AAGF-STACK-001-stack-pack-replaceable-module.mdc -->
+
+# AAGF-STACK-001 (human projection)
+
+Этот документ является человеко-читаемой проекцией runtime rule-entry для target `cursor`.
+
+## Source mapping
+
+- Product source section: `docs/spec/stacks/README.md`
+- Adapter runtime source: `docs/adapters/cursor/runtime/.cursor/rules/stacks/AAGF-STACK-001-stack-pack-replaceable-module.mdc`
+- Runtime compatibility: `.cursor/rules/stacks/AAGF-STACK-001-stack-pack-replaceable-module.mdc`
+- Human projection path: `runtime/cursor/rules/stacks/AAGF-STACK-001-stack-pack-replaceable-module.mdc`
+
+## Контекст
+
+- Section: `stacks` / Stacks
+- Rule ID: `AAGF-STACK-001`
+- Rule title: Stack Pack как заменяемый модуль
+- Intent: Стековый блок должен заменяться без изменения core-политик.
+
+## Нормативные правила
+- Stack-spec MUST описывать только технологические требования конкретного стека.
+- Stack-spec MUST NOT изменять core-инварианты governance-системы.
+- Замена stack pack MAY выполняться без изменений в core/**.
+
+## Условия IF -> THEN
+- IF Требуется изменить правила тестирования для конкретного стека THEN Изменение MUST вноситься в stack-spec, а не в core-политики.
+- IF Stack-spec вводит правило, конфликтующее с core THEN Конфликт MUST быть эскалирован и разрешен через rule precedence.
+
+## Проверки
+- Проверить, что изменения ограничены stack-слоем.
+- Проверить, что core-политики остаются неизменными.

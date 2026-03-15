@@ -24,25 +24,25 @@ sections:
     title: Stacks
     description: Стековые профили и заменяемые технологические блоки.
     source: docs/spec/stacks/README.md
-    spec_data: docs/spec/stacks/profiles.yaml
+    spec_data: docs/spec/stacks/rules.index.yaml
     target_human: docs/human/stacks/README.md
   - id: workflows
     title: Workflows
     description: Повторяемые сценарии выполнения задач агентами.
     source: docs/spec/workflows/README.md
-    spec_data: docs/spec/workflows/workflows.yaml
+    spec_data: docs/spec/workflows/rules.index.yaml
     target_human: docs/human/workflows/README.md
   - id: roles
     title: Roles
     description: Роли агентов, границы и правила handoff.
     source: docs/spec/roles/README.md
-    spec_data: docs/spec/roles/roles.yaml
+    spec_data: docs/spec/roles/rules.index.yaml
     target_human: docs/human/roles/README.md
   - id: adapters
     title: Adapters
     description: Маппинг source-слоя в средовые и runtime-представления.
     source: docs/spec/adapters/README.md
-    spec_data: docs/spec/adapters/mappings.yaml
+    spec_data: docs/spec/adapters/rules.index.yaml
     target_human: docs/human/adapters/README.md
 generators:
   human_root: docs/human/README.md
@@ -52,10 +52,12 @@ generators:
       adapter_root: docs/adapters/jetbrains/README.md
       runtime_dir: .aiassistant
       runtime_rules: docs/adapters/jetbrains/runtime/.aiassistant/rules/README.md
+      runtime_rule_extension: md
       runtime_prompts: docs/adapters/jetbrains/runtime/.aiassistant/prompts/README.md
     - id: cursor
       title: Cursor
       adapter_root: docs/adapters/cursor/README.md
       runtime_dir: .cursor
       runtime_rules: docs/adapters/cursor/runtime/.cursor/rules/README.md
+      runtime_rule_extension: mdc
       runtime_prompts: docs/adapters/cursor/runtime/.cursor/prompts/README.md

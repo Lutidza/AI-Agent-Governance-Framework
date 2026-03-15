@@ -1,0 +1,20 @@
+version: 1
+section: stacks
+entry:
+  id: AAGF-STACK-002
+  file_slug: documenting-stack-assumptions
+  title: Документирование стековых допущений
+  intent: Для каждого стека должны быть формализованы ограничения, риски и
+    критерии валидации.
+  rules:
+    - Stack-spec MUST включать ограничения по зависимостям и версионированию.
+    - Stack-spec MUST включать требования к тестированию и quality gates.
+    - Stack-spec MUST использовать единый формат rule IDs и IF -> THEN условий.
+  if_then:
+    - if: В stack-spec добавлена новая зависимость
+      then: MUST быть добавлены проверка совместимости и migration notes.
+    - if: Stack-изменение влияет на CI/CD
+      then: Изменение MUST быть отмечено как risk-critical и требовать подтверждения.
+  checks:
+    - Проверить наличие rule IDs, checks и risk notes.
+    - Проверить согласованность stack-spec с workflow и role спецификациями.

@@ -1,0 +1,27 @@
+---
+description: "AAGF-STACK-001 Stack Pack как заменяемый модуль"
+globs:
+  - "**/*"
+alwaysApply: true
+---
+<!-- GENERATED FILE: DO NOT EDIT MANUALLY -->
+<!-- Source: docs/spec/stacks/README.md -->
+
+# AAGF-STACK-001 Stack Pack как заменяемый модуль
+
+Раздел source-спецификации: `stacks`
+
+Назначение: Стековый блок должен заменяться без изменения core-политик.
+
+## Нормативные правила
+- RULE: Stack-spec MUST описывать только технологические требования конкретного стека.
+- RULE: Stack-spec MUST NOT изменять core-инварианты governance-системы.
+- RULE: Замена stack pack MAY выполняться без изменений в core/**.
+
+## Условия IF -> THEN
+- IF Требуется изменить правила тестирования для конкретного стека THEN Изменение MUST вноситься в stack-spec, а не в core-политики.
+- IF Stack-spec вводит правило, конфликтующее с core THEN Конфликт MUST быть эскалирован и разрешен через rule precedence.
+
+## Контрольные проверки
+- Проверить, что изменения ограничены stack-слоем.
+- Проверить, что core-политики остаются неизменными.

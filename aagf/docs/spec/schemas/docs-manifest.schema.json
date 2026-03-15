@@ -128,14 +128,15 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": [
-              "id",
-              "title",
-              "adapter_root",
-              "runtime_dir",
-              "runtime_rules",
-              "runtime_prompts"
-            ],
+              "required": [
+                "id",
+                "title",
+                "adapter_root",
+                "runtime_dir",
+                "runtime_rules",
+                "runtime_rule_extension",
+                "runtime_prompts"
+              ],
             "properties": {
               "id": {
                 "type": "string",
@@ -153,14 +154,21 @@
                 "type": "string",
                 "minLength": 1
               },
-              "runtime_rules": {
-                "type": "string",
-                "minLength": 1
-              },
-              "runtime_prompts": {
-                "type": "string",
-                "minLength": 1
-              }
+                "runtime_rules": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "runtime_rule_extension": {
+                  "type": "string",
+                  "enum": [
+                    "md",
+                    "mdc"
+                  ]
+                },
+                "runtime_prompts": {
+                  "type": "string",
+                  "minLength": 1
+                }
             }
           }
         }

@@ -8,6 +8,7 @@
     "docs:generate": "cd aagf && tsx tools/src/cli.ts generate --project-root ..",
     "docs:check": "cd aagf && tsx tools/src/cli.ts check --project-root ..",
     "docs:test": "cd aagf && tsx tools/src/cli.ts test --project-root ..",
+    "docs:test:rules": "cd aagf && tsx tools/src/tests/rules-contract.ts",
     "docs:sync": "cd aagf && tsx tools/src/cli.ts sync --project-root ..",
     "docs:sync:check": "cd aagf && tsx tools/src/cli.ts sync --check --project-root ..",
     "docs:detect-stack": "cd aagf && tsx tools/src/cli.ts detect-stack --project-root ..",

@@ -1,0 +1,47 @@
+<!-- GENERATED FILE: DO NOT EDIT MANUALLY -->
+<!-- Source: docs/spec/workflows/README.md + docs/adapters/cursor/runtime/.cursor/rules/workflows/AAGF-WF-BOOTSTRAP-aagf-bootstrap-integration-workflow.mdc -->
+
+# AAGF-WF-BOOTSTRAP (human projection)
+
+Этот документ является человеко-читаемой проекцией runtime rule-entry для target `cursor`.
+
+## Source mapping
+
+- Product source section: `docs/spec/workflows/README.md`
+- Adapter runtime source: `docs/adapters/cursor/runtime/.cursor/rules/workflows/AAGF-WF-BOOTSTRAP-aagf-bootstrap-integration-workflow.mdc`
+- Runtime compatibility: `.cursor/rules/workflows/AAGF-WF-BOOTSTRAP-aagf-bootstrap-integration-workflow.mdc`
+- Human projection path: `runtime/cursor/rules/workflows/AAGF-WF-BOOTSTRAP-aagf-bootstrap-integration-workflow.mdc`
+
+## Контекст
+
+- Section: `workflows` / Workflows
+- Rule ID: `AAGF-WF-BOOTSTRAP`
+- Rule title: AAGF Bootstrap Integration Workflow
+- Intent: Интеграция AAGF в новый или существующий проект должна выполняться как управляемый протокол с явными фазами, confirm-gates и lock-конфигурацией.
+
+## Нормативные правила
+- Workflow MUST выполняться по фазам Install -> Detect -> Confirm -> Compose -> Generate -> Sync -> Lock.
+- Install MUST подключать aagf/ в проект и MUST заменять root AGENTS.md install-шаблоном `aagf/docs/install/AGENTS.md` через явный dry-run/apply.
+- Detect MUST выполняться через MCP tool `detect_stack_deep` и MUST публиковать `detect-started` с `project-root`, `detector-id`, `session-id`.
+- Detect MUST формировать глубокий `stack-context` по уровням (`os/server/runtime/languages/frameworks/libraries/packages/databases/cache/messaging/ci/deploy`) с `id`, `version`, `confidence`, `evidence`, `source`.
+- Confirm MUST требовать явное действие `confirm` или `edit`; bootstrap MUST NOT продолжаться без прохождения confirm/edit gate.
+- IF выбран `edit` THEN правки MUST сохраняться в `aagf/docs/spec/project/stack-overrides.yaml` и MUST быть применены к итоговому `stack-context` перед Lock.
+- Compose MUST формировать enabled packs и overrides до фазы Generate.
+- Generate MUST собирать aagf/docs/human/** и aagf/docs/adapters/** только из aagf/docs/spec/**.
+- Sync MUST выполняться только после явного подтверждения пользователя и только через target-aware sync-процесс.
+- Lock MUST фиксировать итоговую конфигурацию проекта в `aagf/docs/spec/project/profile.lock.yaml` и MUST записывать `context.yaml`/`profile.lock.yaml` только после confirm/edit.
+- Runtime rules/prompts/workflows MUST использовать подтвержденный `aagf/docs/spec/project/stack-context.yaml` как входной контекст.
+
+## Условия IF -> THEN
+- IF Detect вернул unknown или low-confidence элементы THEN Агент MUST опубликовать structured summary (`stack.*`, `unknown-levels`, `low-confidence`) и MUST запросить explicit confirm/edit.
+- IF Detection action (`confirm`/`edit`) отсутствует THEN Bootstrap MUST остановиться на phase Confirm без перехода в Compose/Generate/Lock.
+- IF Специалист выбрал edit THEN Агент MUST сохранить правки в stack-overrides и MUST пересчитать итоговый stack-context до lock.
+- IF Запрошена синхронизация runtime-контуров THEN Агент MUST сначала выполнить dry-run (`docs:sync:check`) и MUST применять sync только после явного подтверждения.
+- IF Runtime-адаптеры не имеют подтвержденного stack-context THEN Агент MUST NOT использовать не подтвержденный профиль как active для rules/prompts/workflows.
+
+## Проверки
+- Проверить наличие aagf/docs/spec/project/context.yaml, stack-context.yaml, stack-overrides.yaml, stack-detection.yaml, enabled-packs.yaml, overrides.yaml и profile.lock.yaml.
+- Проверить, что detect-результат содержит session-id, evidence, confidence, decision и stack_context_ref.
+- Проверить, что Generate выполняется только из aagf/docs/spec/** без ручных правок derived-слоев.
+- Проверить, что runtime sync прошел через confirm gate.
+- Проверить, что lock-файл зафиксировал выбранный профиль, status confirm/edit и включенные packs.
