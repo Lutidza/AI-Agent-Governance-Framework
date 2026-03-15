@@ -23,6 +23,6 @@
 - Version: `0.1.0`
 - Target: `jetbrains`
 - Sections: `5`
-- Entries: `12`
-- Rules: `58`
+- Entries: `14`
+- Rules: `68`
 - Prompts: `3`

@@ -8,3 +8,5 @@ entries:
     source: docs/spec/core/rules/AAGF-CORE-002.yaml
   - id: AAGF-CORE-003
     source: docs/spec/core/rules/AAGF-CORE-003.yaml
+  - id: AAGF-CORE-004
+    source: docs/spec/core/rules/AAGF-CORE-004.yaml

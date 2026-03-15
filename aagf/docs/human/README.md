@@ -12,9 +12,9 @@
 - IF выполнена прямая правка в `docs/human/**` THEN соответствующая правка в `docs/spec/**` MUST быть выполнена в том же шаге.
 
 ## Карта разделов
-- [core/README.md](core/README.md) - Core (entries: 3)
+- [core/README.md](core/README.md) - Core (entries: 4)
 - [stacks/README.md](stacks/README.md) - Stacks (entries: 2)
-- [workflows/README.md](workflows/README.md) - Workflows (entries: 3)
+- [workflows/README.md](workflows/README.md) - Workflows (entries: 4)
 - [roles/README.md](roles/README.md) - Roles (entries: 2)
 - [adapters/README.md](adapters/README.md) - Adapters (entries: 2)
 
@@ -25,7 +25,7 @@
 - Status: `draft`
 - Language: `ru`
 - Sections: `5`
-- Entries: `12`
-- Rules: `58`
-- IF->THEN: `32`
+- Entries: `14`
+- Rules: `68`
+- IF->THEN: `38`
 - Prompts: `3`

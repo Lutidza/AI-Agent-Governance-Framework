@@ -31,5 +31,5 @@
 - Version: `0.1.0`
 - Target: `jetbrains`
 - Sections: `5`
-- Rules: `58`
+- Rules: `68`
 - Prompts: `3`

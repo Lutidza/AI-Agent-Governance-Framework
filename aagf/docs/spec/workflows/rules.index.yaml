@@ -6,5 +6,7 @@ entries:
     source: docs/spec/workflows/rules/AAGF-WF-001.yaml
   - id: AAGF-WF-002
     source: docs/spec/workflows/rules/AAGF-WF-002.yaml
+  - id: AAGF-WF-003
+    source: docs/spec/workflows/rules/AAGF-WF-003.yaml
   - id: AAGF-WF-BOOTSTRAP
     source: docs/spec/workflows/rules/AAGF-WF-BOOTSTRAP.yaml
