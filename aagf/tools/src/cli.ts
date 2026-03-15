@@ -1,3 +1,10 @@
+/**
+ * @file tools/src/cli.ts
+ * @version 1.2.0
+ * @edited_at 2026-03-15 20:45
+ * CLI-инструмент AAGF для валидации/генерации/sync/bootstrap и сопутствующих контрактов docs-контура.
+ * @remarks Изменения в версии 1.2.0: добавлены machine-readable command catalog, schema-валидация каталога и команда вывода справочника `commands`.
+ */
 import { mkdir, readFile, readdir, stat, unlink, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
@@ -125,6 +132,7 @@ type CliOptions = {
   detectSelectedStack: string;
   detectEditPayloads: string[];
   detectNotes: string[];
+  commandInput: string;
 };
 
 type DetectionDecision = "auto" | "confirm" | "unknown";
@@ -377,6 +385,52 @@ type RootAgentsInstallPlan = {
   needsWrite: boolean;
 };
 
+type CommandParameterSpec = {
+  name: string;
+  type: "path" | "rule_id" | "profile_id" | "mode" | "string" | "boolean";
+  required: boolean;
+  description: string;
+};
+
+type CommandSafetyGateSpec = {
+  confirm_required: boolean;
+  details: string;
+};
+
+type CommandOutputSpec = {
+  format: string;
+  fields: string[];
+};
+
+type CommandExampleSpec = {
+  prompt: string;
+  result: string;
+};
+
+type CommandCatalogEntry = {
+  id: string;
+  syntax: string;
+  intent: string;
+  scope: "file" | "rule" | "docs" | "project";
+  mode: "review" | "fix" | "mixed";
+  params: CommandParameterSpec[];
+  safety_gate: CommandSafetyGateSpec;
+  output: CommandOutputSpec;
+  examples: CommandExampleSpec[];
+};
+
+type CommandCatalogSpec = {
+  version: number;
+  catalog_id: string;
+  description?: string;
+  defaults: {
+    mode: "review" | "fix";
+    output_format: string;
+    confirm_fix: boolean;
+  };
+  commands: CommandCatalogEntry[];
+};
+
 const KIT_ROOT = process.cwd();
 const MANIFEST_PATH = path.join(KIT_ROOT, "docs/spec/manifests/docs.manifest.yaml");
 const MANIFEST_SCHEMA_PATH = path.join(KIT_ROOT, "docs/spec/schemas/docs-manifest.schema.json");
@@ -385,6 +439,10 @@ const RULE_MODULE_SCHEMA_PATH = path.join(KIT_ROOT, "docs/spec/schemas/rule-modu
 const RULES_INDEX_SCHEMA_PATH = path.join(KIT_ROOT, "docs/spec/schemas/rules-index.schema.json");
 const STACK_CONTEXT_SCHEMA_PATH = path.join(KIT_ROOT, "docs/spec/schemas/stack-context.schema.json");
 const STACK_OVERRIDES_SCHEMA_PATH = path.join(KIT_ROOT, "docs/spec/schemas/stack-overrides.schema.json");
+const COMMAND_CATALOG_SCHEMA_PATH = path.join(
+  KIT_ROOT,
+  "docs/spec/schemas/command-catalog.schema.json"
+);
 const TEMPLATE_DIR = path.join(KIT_ROOT, "tools/templates");
 const PROJECT_SPEC_DIR = path.join(KIT_ROOT, "docs/spec/project");
 const PROJECT_CONTEXT_PATH = path.join(PROJECT_SPEC_DIR, "context.yaml");
@@ -394,6 +452,7 @@ const PROJECT_STACK_OVERRIDES_PATH = path.join(PROJECT_SPEC_DIR, "stack-override
 const PROJECT_ENABLED_PACKS_PATH = path.join(PROJECT_SPEC_DIR, "enabled-packs.yaml");
 const PROJECT_OVERRIDES_PATH = path.join(PROJECT_SPEC_DIR, "overrides.yaml");
 const PROJECT_PROFILE_LOCK_PATH = path.join(PROJECT_SPEC_DIR, "profile.lock.yaml");
+const PROJECT_COMMAND_CATALOG_PATH = path.join(PROJECT_SPEC_DIR, "commands.catalog.yaml");
 const MCP_DETECT_STACK_TOOL_PATH = path.join(KIT_ROOT, "tools/src/mcp/detect-stack-deep.ts");
 const COMMENTING_PROFILES_REF = "aagf/docs/spec/stacks/comment-doc-profiles.yaml";
 const ROOT_AGENTS_TEMPLATE_REL = "docs/install/AGENTS.md";
@@ -475,6 +534,47 @@ async function readManifest(): Promise<DocsManifest> {
   }
 
   return manifest;
+}
+
+async function readCommandCatalog(): Promise<CommandCatalogSpec> {
+  const commandCatalog = await readYamlFile<CommandCatalogSpec>(PROJECT_COMMAND_CATALOG_PATH);
+  await validateAgainstSchema(
+    COMMAND_CATALOG_SCHEMA_PATH,
+    commandCatalog,
+    path.relative(KIT_ROOT, PROJECT_COMMAND_CATALOG_PATH)
+  );
+
+  const seenIds = new Set<string>();
+  for (const command of commandCatalog.commands) {
+    if (seenIds.has(command.id)) {
+      throw new Error(`Command catalog contains duplicate command id: '${command.id}'.`);
+    }
+    seenIds.add(command.id);
+  }
+
+  return commandCatalog;
+}
+
+function printCommandCatalog(commandCatalog: CommandCatalogSpec): void {
+  console.log(`aafg commands: catalog='${commandCatalog.catalog_id}' version=${commandCatalog.version}`);
+  console.log(
+    `aafg commands: defaults mode='${commandCatalog.defaults.mode}' output='${commandCatalog.defaults.output_format}' confirm_fix=${commandCatalog.defaults.confirm_fix ? "true" : "false"}.`
+  );
+
+  for (const command of commandCatalog.commands) {
+    const requiredParams = command.params.filter((param) => param.required).map((param) => param.name);
+    console.log("");
+    console.log(`[${command.id}] ${command.syntax}`);
+    console.log(` intent: ${command.intent}`);
+    console.log(` scope=${command.scope}, mode=${command.mode}, confirm_required=${command.safety_gate.confirm_required ? "true" : "false"}`);
+    if (requiredParams.length > 0) {
+      console.log(` required_params: ${requiredParams.join(", ")}`);
+    } else {
+      console.log(" required_params: none");
+    }
+    console.log(` output: ${command.output.format} -> ${command.output.fields.join(", ")}`);
+    console.log(` example: ${command.examples[0]?.prompt ?? "n/a"}`);
+  }
 }
 
 async function loadSections(manifest: DocsManifest): Promise<EnrichedSection[]> {
@@ -626,7 +726,11 @@ function toHumanRuntimeDir(runtimeDir: string): string {
   return normalized;
 }
 
-function buildTemplateContext(manifest: DocsManifest, sections: EnrichedSection[]) {
+function buildTemplateContext(
+  manifest: DocsManifest,
+  sections: EnrichedSection[],
+  commandCatalog: CommandCatalogSpec
+) {
   const totalEntries = sections.reduce((acc, section) => acc + section.spec.entries.length, 0);
   const totalRules = sections.reduce(
     (acc, section) => acc + section.spec.entries.reduce((inner, entry) => inner + entry.rules.length, 0),
@@ -665,7 +769,11 @@ function buildTemplateContext(manifest: DocsManifest, sections: EnrichedSection[
       if_then: totalIfThen,
       prompts: workflowPrompts.length
     },
-    workflow_prompts: workflowPrompts
+    workflow_prompts: workflowPrompts,
+    command_catalog: commandCatalog,
+    command_defaults: commandCatalog.defaults,
+    command_entries: commandCatalog.commands,
+    command_scopes: ["file", "rule", "docs", "project"]
   };
 }
 
@@ -729,11 +837,12 @@ function resolveRuntimeTemplateDir(targetId: string): "jetbrains" | "cursor" {
 function renderOutputs(
   manifest: DocsManifest,
   sections: EnrichedSection[],
-  targets: GeneratorTarget[]
+  targets: GeneratorTarget[],
+  commandCatalog: CommandCatalogSpec
 ): Map<string, string> {
   const env = buildTemplateEnv();
   const outputs = new Map<string, string>();
-  const commonContext = buildTemplateContext(manifest, sections);
+  const commonContext = buildTemplateContext(manifest, sections, commandCatalog);
 
   outputs.set(
     manifest.generators.human_root,
@@ -917,7 +1026,7 @@ async function applyRootAgentsInstallPlan(plan: RootAgentsInstallPlan): Promise<
 
 function printUsage(): void {
   console.log(
-    "Usage: tsx tools/src/cli.ts <validate|generate|check|test|sync|detect-stack|bootstrap> [--target <jetbrains|cursor|all>] [--project-root <path>] [--check] [--apply] [--guided] [--confirm-detection] [--sync] [--confirm-sync] [--enable-pack <id>] [--disable-pack <id>] [--detect-action <confirm|edit>] [--detect-selected-stack <id>] [--detect-edit <json|yaml>] [--detect-note <text>]"
+    "Usage: tsx tools/src/cli.ts <validate|generate|check|test|sync|detect-stack|bootstrap|commands|command-debug> [--target <jetbrains|cursor|all>] [--project-root <path>] [--check] [--apply] [--guided] [--confirm-detection] [--sync] [--confirm-sync] [--enable-pack <id>] [--disable-pack <id>] [--detect-action <confirm|edit>] [--detect-selected-stack <id>] [--detect-edit <json|yaml>] [--detect-note <text>] [--input <aafg command>]"
   );
 }
 
@@ -936,6 +1045,7 @@ function parseCliOptions(argv: string[]): CliOptions {
   let detectSelectedStack = "";
   const detectEditPayloads: string[] = [];
   const detectNotes: string[] = [];
+  let commandInput = "";
 
   for (let index = 0; index < argv.length; index++) {
     const token = argv[index];
@@ -1128,8 +1238,27 @@ function parseCliOptions(argv: string[]): CliOptions {
       continue;
     }
 
+    if (token === "--input") {
+      const value = argv[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("Option '--input' requires a command string.");
+      }
+      commandInput = value;
+      index += 1;
+      continue;
+    }
+
+    if (token.startsWith("--input=")) {
+      const value = token.slice("--input=".length).trim();
+      if (!value) {
+        throw new Error("Option '--input=' requires a command string.");
+      }
+      commandInput = value;
+      continue;
+    }
+
     throw new Error(
-      `Unknown option '${token}'. Supported options: --target <id|all>, --project-root <path>, --check, --apply, --guided, --confirm-detection, --sync, --confirm-sync, --enable-pack <id>, --disable-pack <id>, --detect-action <confirm|edit>, --detect-selected-stack <id>, --detect-edit <json|yaml>, --detect-note <text>.`
+      `Unknown option '${token}'. Supported options: --target <id|all>, --project-root <path>, --check, --apply, --guided, --confirm-detection, --sync, --confirm-sync, --enable-pack <id>, --disable-pack <id>, --detect-action <confirm|edit>, --detect-selected-stack <id>, --detect-edit <json|yaml>, --detect-note <text>, --input <command>.`
     );
   }
 
@@ -1147,7 +1276,8 @@ function parseCliOptions(argv: string[]): CliOptions {
     detectionAction,
     detectSelectedStack,
     detectEditPayloads,
-    detectNotes
+    detectNotes,
+    commandInput
   };
 }
 
@@ -2492,7 +2622,8 @@ async function runBootstrapCommand(
     `phase Compose: enabled packs=${enabledPackIds.length}, overrides file='${path.relative(KIT_ROOT, PROJECT_OVERRIDES_PATH)}'.`
   );
 
-  const outputs = renderOutputs(manifest, sections, targets);
+  const commandCatalog = await readCommandCatalog();
+  const outputs = renderOutputs(manifest, sections, targets, commandCatalog);
 
   if (dryRun) {
     console.log(`phase Generate: dry-run -> would generate ${outputs.size} files from docs/spec/**.`);
@@ -2545,6 +2676,95 @@ async function runBootstrapCommand(
   );
 }
 
+function findCatalogCommandById(
+  commandCatalog: CommandCatalogSpec,
+  commandId: string
+): CommandCatalogEntry {
+  const entry = commandCatalog.commands.find((command) => command.id === commandId);
+  if (!entry) {
+    throw new Error(`Command catalog does not contain command '${commandId}'.`);
+  }
+  return entry;
+}
+
+function resolveModeToken(rawValue: string | undefined): "review" | "fix" {
+  if (!rawValue) {
+    return "review";
+  }
+
+  const normalized = rawValue.replace(/^mode=/i, "").trim().toLowerCase();
+  if (normalized === "review" || normalized === "fix") {
+    return normalized;
+  }
+
+  throw new Error(`Unsupported mode '${rawValue}'. Supported values: review|fix.`);
+}
+
+function resolveCommandDebugInput(
+  commandCatalog: CommandCatalogSpec,
+  commandInput: string
+): {
+  aliasCommandId: string;
+  resolvedCommandId: string;
+  resolvedSyntax: string;
+  targetPath: string;
+  mode: "review" | "fix";
+  confirmRequiredForRealFix: boolean;
+  dryRun: true;
+} {
+  const trimmed = commandInput.trim();
+  if (!trimmed) {
+    throw new Error("Option '--input' cannot be empty for command-debug.");
+  }
+
+  const aliasMatch = /^aafg:test\s+(\S+)(?:\s+(fix|review|mode=fix|mode=review))?$/i.exec(trimmed);
+  if (!aliasMatch) {
+    throw new Error(
+      "command-debug currently supports alias syntax: 'aafg:test <path> [fix|review]'."
+    );
+  }
+
+  const targetPath = aliasMatch[1];
+  const mode = resolveModeToken(aliasMatch[2]);
+  const resolvedCommandId = mode === "fix" ? "AAFG-CMD-FILE-FIX" : "AAFG-CMD-FILE-REVIEW";
+  const resolvedCommand = findCatalogCommandById(commandCatalog, resolvedCommandId);
+
+  return {
+    aliasCommandId: "AAFG-CMD-TEST",
+    resolvedCommandId,
+    resolvedSyntax: `aafg file ${targetPath} mode=${mode}`,
+    targetPath,
+    mode,
+    confirmRequiredForRealFix: resolvedCommand.safety_gate.confirm_required,
+    dryRun: true
+  };
+}
+
+function printCommandDebugResolution(
+  resolution: ReturnType<typeof resolveCommandDebugInput>,
+  rawInput: string
+): void {
+  console.log("aafg:debug mode='dry-run'. No file changes are performed.");
+  console.log(`aafg:debug raw_input='${rawInput}'.`);
+  console.log(`aafg:debug alias_command='${resolution.aliasCommandId}'.`);
+  console.log(`aafg:debug resolved_command='${resolution.resolvedCommandId}'.`);
+  console.log(`aafg:debug resolved_syntax='${resolution.resolvedSyntax}'.`);
+  console.log(`aafg:debug target='${resolution.targetPath}'.`);
+  console.log(`aafg:debug resolved_mode='${resolution.mode}'.`);
+  console.log(
+    `aafg:debug confirm_required_for_real_fix=${resolution.confirmRequiredForRealFix ? "true" : "false"}.`
+  );
+}
+
+function runCommandDebug(commandCatalog: CommandCatalogSpec, cliOptions: CliOptions): void {
+  if (!cliOptions.commandInput.trim()) {
+    throw new Error("Command 'command-debug' requires '--input <aafg command>'.");
+  }
+
+  const resolution = resolveCommandDebugInput(commandCatalog, cliOptions.commandInput);
+  printCommandDebugResolution(resolution, cliOptions.commandInput.trim());
+}
+
 function assertNoBootstrapOnlyOptions(command: string, options: CliOptions): void {
   const usedBootstrapOption =
     options.guided ||
@@ -2575,6 +2795,12 @@ function assertNoDetectionDialogOptions(command: string, options: CliOptions): v
   }
 }
 
+function assertNoCommandDebugOptions(command: string, options: CliOptions): void {
+  if (options.commandInput.trim().length > 0) {
+    throw new Error(`Option '--input' is supported only with command 'command-debug'. Command='${command}'.`);
+  }
+}
+
 function assertNoApplyOption(command: string, options: CliOptions): void {
   if (options.apply) {
     throw new Error(`Option '--apply' is not supported with command '${command}'.`);
@@ -2593,21 +2819,37 @@ async function main(): Promise<void> {
 
   if (command === "detect-stack") {
     assertNoBootstrapOnlyOptions(command, cliOptions);
+    assertNoCommandDebugOptions(command, cliOptions);
     await runDetectStackCommand(cliOptions);
     return;
   }
 
   const manifest = await readManifest();
   const sections = await loadSections(manifest);
+  const commandCatalog = await readCommandCatalog();
 
   if (command === "bootstrap") {
+    assertNoCommandDebugOptions(command, cliOptions);
     await runBootstrapCommand(manifest, sections, cliOptions);
     return;
   }
 
   assertNoDetectionDialogOptions(command, cliOptions);
 
-  if (command === "validate") {
+  if (command === "commands") {
+    assertNoBootstrapOnlyOptions(command, cliOptions);
+    assertNoApplyOption(command, cliOptions);
+    assertNoCommandDebugOptions(command, cliOptions);
+
+    if (cliOptions.check) {
+      throw new Error("Option '--check' is supported only with the 'sync' command.");
+    }
+
+    printCommandCatalog(commandCatalog);
+    return;
+  }
+
+  if (command === "command-debug") {
     assertNoBootstrapOnlyOptions(command, cliOptions);
     assertNoApplyOption(command, cliOptions);
 
@@ -2615,19 +2857,33 @@ async function main(): Promise<void> {
       throw new Error("Option '--check' is supported only with the 'sync' command.");
     }
 
-    const context = buildTemplateContext(manifest, sections);
+    runCommandDebug(commandCatalog, cliOptions);
+    return;
+  }
+
+  if (command === "validate") {
+    assertNoBootstrapOnlyOptions(command, cliOptions);
+    assertNoApplyOption(command, cliOptions);
+    assertNoCommandDebugOptions(command, cliOptions);
+
+    if (cliOptions.check) {
+      throw new Error("Option '--check' is supported only with the 'sync' command.");
+    }
+
+    const context = buildTemplateContext(manifest, sections, commandCatalog);
     console.log(
-      `docs-build: validated manifest + sections (sections=${context.stats.sections}, entries=${context.stats.entries}, rules=${context.stats.rules}).`
+      `docs-build: validated manifest + sections + commands (sections=${context.stats.sections}, entries=${context.stats.entries}, rules=${context.stats.rules}, commands=${commandCatalog.commands.length}).`
     );
     return;
   }
 
   const targets = resolveTargets(manifest, cliOptions.target);
-  const outputs = renderOutputs(manifest, sections, targets);
+  const outputs = renderOutputs(manifest, sections, targets, commandCatalog);
 
   if (command === "sync") {
     assertNoBootstrapOnlyOptions(command, cliOptions);
     assertNoApplyOption(command, cliOptions);
+    assertNoCommandDebugOptions(command, cliOptions);
 
     const projectRoot = resolveProjectRoot(cliOptions.projectRoot);
     const plans = await Promise.all(targets.map((target) => buildSyncPlan(target, projectRoot)));
@@ -2657,6 +2913,7 @@ async function main(): Promise<void> {
   if (command === "generate") {
     assertNoBootstrapOnlyOptions(command, cliOptions);
     assertNoApplyOption(command, cliOptions);
+    assertNoCommandDebugOptions(command, cliOptions);
 
     if (cliOptions.check) {
       throw new Error("Option '--check' is supported only with the 'sync' command.");
@@ -2670,6 +2927,7 @@ async function main(): Promise<void> {
   if (command === "check") {
     assertNoBootstrapOnlyOptions(command, cliOptions);
     assertNoApplyOption(command, cliOptions);
+    assertNoCommandDebugOptions(command, cliOptions);
 
     if (cliOptions.check) {
       throw new Error("Option '--check' is supported only with the 'sync' command.");
@@ -2693,6 +2951,7 @@ async function main(): Promise<void> {
   if (command === "test") {
     assertNoBootstrapOnlyOptions(command, cliOptions);
     assertNoApplyOption(command, cliOptions);
+    assertNoCommandDebugOptions(command, cliOptions);
 
     if (cliOptions.check) {
       throw new Error("Option '--check' is supported only with the 'sync' command.");

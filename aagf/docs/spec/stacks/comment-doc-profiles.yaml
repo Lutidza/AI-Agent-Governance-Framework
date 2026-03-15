@@ -1,6 +1,29 @@
 version: 1
 catalog_id: AAGF-STACK-COMMENT-PROFILES
 description: Карта стековых профилей документирования комментариев и метаданных трассируемости.
+profile_contract:
+  metadata_header:
+    required: true
+    order:
+      - file
+      - version
+      - edited_at
+    required_blocks_after_header:
+      - summary
+      - changes_current_version
+  coverage:
+    changed_public_contracts: required
+    changed_functions_methods: required
+    changed_nontrivial_logic: required
+    changed_trivial_operations: optional
+  semantic_tags_policy:
+    required_tags_must_be_used_when_semantic_present: true
+    optional_tags_must_be_used_when_semantic_present: true
+  normalization:
+    normalize_non_compliant_comments_on_touch: true
+  examples_policy:
+    canonical_source: aagf/docs/spec/stacks/comment-doc-examples.md
+    required_per_profile: true
 profiles:
   - id: node-typescript.tsdoc-v1
     title: Node/TypeScript Commenting Profile
@@ -22,6 +45,19 @@ profiles:
       - see
       - link
       - deprecated
+    metadata_header:
+      file_tag: "@file <repo-relative-path>"
+      version_tag: "@version <semver>"
+      edited_at_tag: "@edited_at <YYYY-MM-DD HH:mm>"
+      summary_line: "Краткое описание назначения файла."
+      changes_block_tag: "@remarks"
+    change_markers:
+      edited_block_marker_required: false
+      syntax_hint: "@remarks [changed-in <version>] <что изменено и почему>"
+    example_refs:
+      file_header: aagf/docs/spec/stacks/comment-doc-examples.md#node-typescript-file-header
+      function_doc: aagf/docs/spec/stacks/comment-doc-examples.md#node-typescript-function-doc
+      changed_block_marker: aagf/docs/spec/stacks/comment-doc-examples.md#node-typescript-changed-block-marker
     policy:
       stale_comment: must_update_in_same_change
       todo_fixme: require_reason_and_task_ref
@@ -47,6 +83,19 @@ profiles:
       - see
       - link
       - deprecated
+    metadata_header:
+      file_tag: "@file <repo-relative-path>"
+      version_tag: "@version <semver>"
+      edited_at_tag: "@edited_at <YYYY-MM-DD HH:mm>"
+      summary_line: "Краткое описание назначения файла."
+      changes_block_tag: "@remarks"
+    change_markers:
+      edited_block_marker_required: false
+      syntax_hint: "@remarks [changed-in <version>] <что изменено и почему>"
+    example_refs:
+      file_header: aagf/docs/spec/stacks/comment-doc-examples.md#php-file-header
+      function_doc: aagf/docs/spec/stacks/comment-doc-examples.md#php-function-doc
+      changed_block_marker: aagf/docs/spec/stacks/comment-doc-examples.md#php-changed-block-marker
     policy:
       stale_comment: must_update_in_same_change
       todo_fixme: require_reason_and_task_ref
@@ -71,6 +120,19 @@ profiles:
       - see
       - link
       - deprecated
+    metadata_header:
+      file_tag: "@file <repo-relative-path>"
+      version_tag: "@version <semver>"
+      edited_at_tag: "@edited_at <YYYY-MM-DD HH:mm>"
+      summary_line: "Краткое описание назначения файла."
+      changes_block_tag: "@remarks"
+    change_markers:
+      edited_block_marker_required: false
+      syntax_hint: "@remarks [changed-in <version>] <что изменено и почему>"
+    example_refs:
+      file_header: aagf/docs/spec/stacks/comment-doc-examples.md#dart-file-header
+      function_doc: aagf/docs/spec/stacks/comment-doc-examples.md#dart-function-doc
+      changed_block_marker: aagf/docs/spec/stacks/comment-doc-examples.md#dart-changed-block-marker
     policy:
       stale_comment: must_update_in_same_change
       todo_fixme: require_reason_and_task_ref
@@ -94,6 +156,19 @@ profiles:
       - see
       - link
       - deprecated
+    metadata_header:
+      file_tag: "@file <repo-relative-path>"
+      version_tag: "@version <semver>"
+      edited_at_tag: "@edited_at <YYYY-MM-DD HH:mm>"
+      summary_line: "Краткое описание назначения файла."
+      changes_block_tag: "@remarks"
+    change_markers:
+      edited_block_marker_required: false
+      syntax_hint: "@remarks [changed-in <version>] <что изменено и почему>"
+    example_refs:
+      file_header: aagf/docs/spec/stacks/comment-doc-examples.md#generic-file-header
+      function_doc: aagf/docs/spec/stacks/comment-doc-examples.md#generic-function-doc
+      changed_block_marker: aagf/docs/spec/stacks/comment-doc-examples.md#generic-changed-block-marker
     policy:
       stale_comment: must_update_in_same_change
       todo_fixme: require_reason_and_task_ref

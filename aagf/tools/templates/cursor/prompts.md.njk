@@ -19,6 +19,28 @@
 3. Выполнение только в рамках согласованного контура.
 4. Handoff с перечнем изменений и проверок.
 
+## Диалоговый справочник AAFG
+
+- Source of truth команд: `docs/spec/project/commands.catalog.yaml`.
+- Дефолт исполнения: `mode={{ command_defaults.mode }}`, `confirm_fix={{ command_defaults.confirm_fix }}`, `output={{ command_defaults.output_format }}`.
+- Если специалист пишет `aafg help`, агент MUST вывести краткий справочник команд из catalog.
+- Если специалист пишет `aafg command <ID>`, агент MUST показать карточку команды (`syntax/params/safety_gate/examples`).
+- Если специалист пишет `aafg defaults`, агент MUST показать текущие defaults каталога.
+- Если специалист пишет `aafg:test <path> [fix|review]`, агент MUST выполнить только debug-разбор команды и MUST NOT изменять файлы.
+- Для `aafg:test ... fix` агент MUST явно показать, что реальный fix требует confirm-gate.
+- IF в запросе не указан `mode` THEN агент MUST использовать `mode=review`.
+- IF запрошен `mode=fix` THEN агент MUST пройти confirm-gate перед правками.
+
+### Команды из каталога
+{% if command_entries.length == 0 %}
+Каталог команд пуст. Добавьте записи в `docs/spec/project/commands.catalog.yaml`.
+{% else %}
+{% for command in command_entries %}
+- `{{ command.id }}`: `{{ command.syntax }}`
+  scope=`{{ command.scope }}`, mode=`{{ command.mode }}`, confirm_required=`{{ command.safety_gate.confirm_required }}`
+{% endfor %}
+{% endif %}
+
 ## Prompt Blueprints из workflow-spec
 {% if workflow_prompts.length == 0 %}
 Нет доступных prompt-blueprints. Добавьте блок `prompts` в соответствующий модуль `docs/spec/workflows/rules/*.yaml`.

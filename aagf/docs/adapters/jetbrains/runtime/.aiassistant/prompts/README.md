@@ -19,6 +19,38 @@
 3. Выполнение только в рамках согласованного контура.
 4. Handoff с перечнем изменений и проверок.
 
+## Диалоговый справочник AAFG
+
+- Source of truth команд: `docs/spec/project/commands.catalog.yaml`.
+- Дефолт исполнения: `mode=review`, `confirm_fix=true`, `output=structured-findings`.
+- Если специалист пишет `aafg help`, агент MUST вывести краткий справочник команд из catalog.
+- Если специалист пишет `aafg command <ID>`, агент MUST показать карточку команды (`syntax/params/safety_gate/examples`).
+- Если специалист пишет `aafg defaults`, агент MUST показать текущие defaults каталога.
+- Если специалист пишет `aafg:test <path> [fix|review]`, агент MUST выполнить только debug-разбор команды и MUST NOT изменять файлы.
+- Для `aafg:test ... fix` агент MUST явно показать, что реальный fix требует confirm-gate.
+- IF в запросе не указан `mode` THEN агент MUST использовать `mode=review`.
+- IF запрошен `mode=fix` THEN агент MUST пройти confirm-gate перед правками.
+
+### Команды из каталога
+- `AAFG-CMD-HELP`: `aafg help [scope=file|rule|docs|project]`
+  scope=`project`, mode=`review`, confirm_required=`false`
+- `AAFG-CMD-COMMAND`: `aafg command <COMMAND_ID>`
+  scope=`project`, mode=`review`, confirm_required=`false`
+- `AAFG-CMD-DEFAULTS`: `aafg defaults`
+  scope=`project`, mode=`review`, confirm_required=`false`
+- `AAFG-CMD-TEST`: `aafg:test <path> [fix|review]`
+  scope=`file`, mode=`mixed`, confirm_required=`false`
+- `AAFG-CMD-FILE-REVIEW`: `aafg file <path> mode=review [rule=<RULE_ID>] [profile=<PROFILE_ID>]`
+  scope=`file`, mode=`review`, confirm_required=`false`
+- `AAFG-CMD-FILE-FIX`: `aafg file <path> mode=fix [rule=<RULE_ID>] [profile=<PROFILE_ID>]`
+  scope=`file`, mode=`fix`, confirm_required=`true`
+- `AAFG-CMD-RULE-EXPLAIN`: `aafg rule <RULE_ID> explain`
+  scope=`rule`, mode=`review`, confirm_required=`false`
+- `AAFG-CMD-RULES-TEST`: `aafg rules test [target=<path>] [profile=<PROFILE_ID>]`
+  scope=`project`, mode=`mixed`, confirm_required=`false`
+- `AAFG-CMD-DOCS-SYNC`: `aafg docs sync [target=jetbrains|cursor|all]`
+  scope=`docs`, mode=`fix`, confirm_required=`true`
+
 ## Prompt Blueprints из workflow-spec
 ### AAGF-PROMPT-PLAN-FIRST - Plan First Execution
 

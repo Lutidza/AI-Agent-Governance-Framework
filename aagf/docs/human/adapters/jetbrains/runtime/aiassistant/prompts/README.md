@@ -18,6 +18,26 @@
 - Prompt-шаблоны MUST NOT вводить правила, отсутствующие в `docs/spec/**`.
 - IF runtime prompts расходятся с source-слоем THEN приоритет MUST быть у `docs/spec/**`.
 
+## Диалоговый справочник AAFG (проекция)
+
+- Source of truth команд: `docs/spec/project/commands.catalog.yaml`.
+- Дефолты каталога: `mode=review`, `confirm_fix=true`, `output=structured-findings`.
+- Runtime prompt MUST поддерживать команды `aafg help`, `aafg command <ID>`, `aafg defaults`.
+- Runtime prompt MUST поддерживать debug-команду `aafg:test <path> [fix|review]` без внесения изменений в файлы.
+- IF mode не указан в запросе THEN runtime prompt MUST интерпретировать запрос как `mode=review`.
+- IF mode=`fix` THEN runtime prompt MUST требовать confirm-gate перед правками.
+
+### Команды из каталога
+- `AAFG-CMD-HELP`: `aafg help [scope=file|rule|docs|project]` (`scope=project`, `mode=review`, `confirm=false`)
+- `AAFG-CMD-COMMAND`: `aafg command <COMMAND_ID>` (`scope=project`, `mode=review`, `confirm=false`)
+- `AAFG-CMD-DEFAULTS`: `aafg defaults` (`scope=project`, `mode=review`, `confirm=false`)
+- `AAFG-CMD-TEST`: `aafg:test <path> [fix|review]` (`scope=file`, `mode=mixed`, `confirm=false`)
+- `AAFG-CMD-FILE-REVIEW`: `aafg file <path> mode=review [rule=<RULE_ID>] [profile=<PROFILE_ID>]` (`scope=file`, `mode=review`, `confirm=false`)
+- `AAFG-CMD-FILE-FIX`: `aafg file <path> mode=fix [rule=<RULE_ID>] [profile=<PROFILE_ID>]` (`scope=file`, `mode=fix`, `confirm=true`)
+- `AAFG-CMD-RULE-EXPLAIN`: `aafg rule <RULE_ID> explain` (`scope=rule`, `mode=review`, `confirm=false`)
+- `AAFG-CMD-RULES-TEST`: `aafg rules test [target=<path>] [profile=<PROFILE_ID>]` (`scope=project`, `mode=mixed`, `confirm=false`)
+- `AAFG-CMD-DOCS-SYNC`: `aafg docs sync [target=jetbrains|cursor|all]` (`scope=docs`, `mode=fix`, `confirm=true`)
+
 ## Prompt Blueprints из workflow-spec
 ### AAGF-PROMPT-PLAN-FIRST - Plan First Execution
 

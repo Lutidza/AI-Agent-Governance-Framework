@@ -18,6 +18,24 @@
 - Prompt-шаблоны MUST NOT вводить правила, отсутствующие в `docs/spec/**`.
 - IF runtime prompts расходятся с source-слоем THEN приоритет MUST быть у `docs/spec/**`.
 
+## Диалоговый справочник AAFG (проекция)
+
+- Source of truth команд: `docs/spec/project/commands.catalog.yaml`.
+- Дефолты каталога: `mode={{ command_defaults.mode }}`, `confirm_fix={{ command_defaults.confirm_fix }}`, `output={{ command_defaults.output_format }}`.
+- Runtime prompt MUST поддерживать команды `aafg help`, `aafg command <ID>`, `aafg defaults`.
+- Runtime prompt MUST поддерживать debug-команду `aafg:test <path> [fix|review]` без внесения изменений в файлы.
+- IF mode не указан в запросе THEN runtime prompt MUST интерпретировать запрос как `mode=review`.
+- IF mode=`fix` THEN runtime prompt MUST требовать confirm-gate перед правками.
+
+### Команды из каталога
+{% if command_entries.length == 0 %}
+Каталог команд пуст. Добавьте записи в `docs/spec/project/commands.catalog.yaml`.
+{% else %}
+{% for command in command_entries %}
+- `{{ command.id }}`: `{{ command.syntax }}` (`scope={{ command.scope }}`, `mode={{ command.mode }}`, `confirm={{ command.safety_gate.confirm_required }}`)
+{% endfor %}
+{% endif %}
+
 ## Prompt Blueprints из workflow-spec
 {% if workflow_prompts.length == 0 %}
 Нет доступных prompt-blueprints. Добавьте блок `prompts` в соответствующий модуль `docs/spec/workflows/rules/*.yaml`.

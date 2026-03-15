@@ -25,4 +25,5 @@
 - `project/enabled-packs.yaml`
 - `project/overrides.yaml`
 - `project/profile.lock.yaml`
+- `project/commands.catalog.yaml`
 - [schemas/README.md](schemas/README.md)

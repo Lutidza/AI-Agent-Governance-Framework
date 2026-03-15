@@ -1,0 +1,247 @@
+version: 1
+catalog_id: AAGF-COMMAND-CATALOG
+description: Машиночитаемый справочник команд AAFG для режимов review/fix и управляемого выполнения через диалог с агентом.
+defaults:
+  mode: review
+  output_format: structured-findings
+  confirm_fix: true
+commands:
+  - id: AAFG-CMD-HELP
+    syntax: aafg help [scope=file|rule|docs|project]
+    intent: Показать краткий справочник доступных AAFG-команд в диалоге.
+    scope: project
+    mode: review
+    params:
+      - name: scope
+        type: string
+        required: false
+        description: Ограничить справочник конкретной областью.
+    safety_gate:
+      confirm_required: false
+      details: Команда только читает каталог команд и не меняет файлы.
+    output:
+      format: command-help
+      fields:
+        - defaults
+        - commands
+        - quick_examples
+        - status
+    examples:
+      - prompt: aafg help
+        result: Агент показывает список команд по scope с краткими примерами.
+  - id: AAFG-CMD-COMMAND
+    syntax: aafg command <COMMAND_ID>
+    intent: Показать полную карточку одной команды из каталога.
+    scope: project
+    mode: review
+    params:
+      - name: command_id
+        type: string
+        required: true
+        description: Идентификатор команды из commands.catalog.yaml.
+    safety_gate:
+      confirm_required: false
+      details: Команда read-only, не вносит изменения.
+    output:
+      format: command-card
+      fields:
+        - id
+        - syntax
+        - intent
+        - params
+        - safety_gate
+        - examples
+        - status
+    examples:
+      - prompt: aafg command AAFG-CMD-FILE-FIX
+        result: Агент выводит карточку команды с confirm-gate и примером вызова.
+  - id: AAFG-CMD-DEFAULTS
+    syntax: aafg defaults
+    intent: Показать дефолтные правила исполнения команд (mode/output/confirm_fix).
+    scope: project
+    mode: review
+    params: []
+    safety_gate:
+      confirm_required: false
+      details: Команда read-only.
+    output:
+      format: defaults-summary
+      fields:
+        - mode
+        - output_format
+        - confirm_fix
+        - status
+    examples:
+      - prompt: aafg defaults
+        result: Агент показывает, что mode по умолчанию review и fix требует confirm.
+  - id: AAFG-CMD-TEST
+    syntax: aafg:test <path> [fix|review]
+    intent: Отладочный dry-run разбор команды для проверки маршрутизации и safety-gate без правок файлов.
+    scope: file
+    mode: mixed
+    params:
+      - name: path
+        type: path
+        required: true
+        description: Целевой файл для проверки маршрутизации.
+      - name: mode
+        type: mode
+        required: false
+        description: Целевой режим; по умолчанию review.
+    safety_gate:
+      confirm_required: false
+      details: Команда всегда debug-only и MUST NOT изменять файлы.
+    output:
+      format: command-debug
+      fields:
+        - raw_input
+        - resolved_command
+        - resolved_mode
+        - target
+        - confirm_required_for_real_fix
+        - status
+    examples:
+      - prompt: aafg:test aagf/tools/src/tests/detect-contract.ts fix
+        result: Агент показывает, что будет применен file-fix с confirm-gate, но в debug-режиме правки не выполняются.
+  - id: AAFG-CMD-FILE-REVIEW
+    syntax: aafg file <path> mode=review [rule=<RULE_ID>] [profile=<PROFILE_ID>]
+    intent: Проверить файл по активным правилам AAFG без внесения изменений.
+    scope: file
+    mode: review
+    params:
+      - name: path
+        type: path
+        required: true
+        description: Относительный путь до файла в репозитории.
+      - name: rule
+        type: rule_id
+        required: false
+        description: Ограничить анализ конкретным правилом.
+      - name: profile
+        type: profile_id
+        required: false
+        description: Явно указать профиль документирования.
+    safety_gate:
+      confirm_required: false
+      details: Режим review не изменяет файлы.
+    output:
+      format: structured-findings
+      fields:
+        - mode
+        - target
+        - rules_applied
+        - findings
+        - recommendations
+        - status
+    examples:
+      - prompt: aafg aagf/tools/src/tests/detect-contract.ts mode=review
+        result: Агент выдает список нарушений с file:line и без правок файлов.
+  - id: AAFG-CMD-FILE-FIX
+    syntax: aafg file <path> mode=fix [rule=<RULE_ID>] [profile=<PROFILE_ID>]
+    intent: Привести файл в соответствие правилам AAFG с обязательным confirm-gate.
+    scope: file
+    mode: fix
+    params:
+      - name: path
+        type: path
+        required: true
+        description: Относительный путь до файла в репозитории.
+      - name: rule
+        type: rule_id
+        required: false
+        description: Ограничить исправления конкретным правилом.
+      - name: profile
+        type: profile_id
+        required: false
+        description: Явно указать профиль документирования.
+    safety_gate:
+      confirm_required: true
+      details: Перед правками агент MUST получить явное подтверждение специалиста.
+    output:
+      format: fix-report
+      fields:
+        - mode
+        - target
+        - rules_applied
+        - changes
+        - verification
+        - status
+    examples:
+      - prompt: aafg aagf/tools/src/tests/detect-contract.ts mode=fix
+        result: Агент вносит правки после confirm и возвращает diff + результаты verify.
+  - id: AAFG-CMD-RULE-EXPLAIN
+    syntax: aafg rule <RULE_ID> explain
+    intent: Показать и разъяснить текущее правило из source-of-truth слоя.
+    scope: rule
+    mode: review
+    params:
+      - name: rule_id
+        type: rule_id
+        required: true
+        description: Идентификатор правила AAGF.
+    safety_gate:
+      confirm_required: false
+      details: Режим read-only, изменения не выполняются.
+    output:
+      format: rule-summary
+      fields:
+        - rule_id
+        - source_path
+        - intent
+        - rules
+        - checks
+    examples:
+      - prompt: aafg rule AAGF-CORE-003 explain
+        result: Агент показывает source-правило и кратко объясняет обязательства.
+  - id: AAFG-CMD-RULES-TEST
+    syntax: aafg rules test [target=<path>] [profile=<PROFILE_ID>]
+    intent: Запустить контрактные проверки правил на полигоне или указанной директории.
+    scope: project
+    mode: mixed
+    params:
+      - name: target
+        type: path
+        required: false
+        description: Каталог для проверки, если нужен не стандартный полигон.
+      - name: profile
+        type: profile_id
+        required: false
+        description: Профиль проверки комментариев.
+    safety_gate:
+      confirm_required: false
+      details: Команда выполняет только валидацию и не вносит изменения.
+    output:
+      format: test-report
+      fields:
+        - target
+        - tests
+        - violations
+        - exit_code
+        - status
+    examples:
+      - prompt: aafg rules test target=aagf/tools/src/tests/fixtures/commenting-rule-lab/pass
+        result: Агент возвращает pass/fail и список нарушений при наличии.
+  - id: AAFG-CMD-DOCS-SYNC
+    syntax: aafg docs sync [target=jetbrains|cursor|all]
+    intent: Синхронизировать generated-слои из source-слоя по протоколу docs:generate/docs:check/docs:sync.
+    scope: docs
+    mode: fix
+    params:
+      - name: target
+        type: string
+        required: false
+        description: Целевой runtime-адаптер для синхронизации.
+    safety_gate:
+      confirm_required: true
+      details: Runtime-sync требует явного подтверждения перед apply-фазой.
+    output:
+      format: sync-report
+      fields:
+        - target
+        - generated_files
+        - drift_status
+        - sync_status
+        - status
+    examples:
+      - prompt: aafg docs sync target=all
+        result: Агент проходит generate/check и сообщает результат sync по confirm-gate.
