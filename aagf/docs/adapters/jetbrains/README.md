@@ -24,5 +24,5 @@
 - Target: `jetbrains`
 - Sections: `5`
 - Entries: `14`
-- Rules: `68`
+- Rules: `69`
 - Prompts: `3`
