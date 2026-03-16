@@ -2,6 +2,9 @@ version: 1
 catalog_id: AAGF-STACK-COMMENT-PROFILES
 description: Карта стековых профилей документирования комментариев и метаданных трассируемости.
 profile_contract:
+  language_policy:
+    human_comment_language: ru
+    technical_tokens_may_be_non_russian: true
   metadata_header:
     required: true
     order:
@@ -59,6 +62,7 @@ profiles:
       function_doc: aagf/docs/spec/stacks/comment-doc-examples.md#node-typescript-function-doc
       changed_block_marker: aagf/docs/spec/stacks/comment-doc-examples.md#node-typescript-changed-block-marker
     policy:
+      comment_language: russian_required
       stale_comment: must_update_in_same_change
       todo_fixme: require_reason_and_task_ref
   - id: php.phpdoc-v1
@@ -97,6 +101,7 @@ profiles:
       function_doc: aagf/docs/spec/stacks/comment-doc-examples.md#php-function-doc
       changed_block_marker: aagf/docs/spec/stacks/comment-doc-examples.md#php-changed-block-marker
     policy:
+      comment_language: russian_required
       stale_comment: must_update_in_same_change
       todo_fixme: require_reason_and_task_ref
   - id: dart.dartdoc-v1
@@ -134,6 +139,7 @@ profiles:
       function_doc: aagf/docs/spec/stacks/comment-doc-examples.md#dart-function-doc
       changed_block_marker: aagf/docs/spec/stacks/comment-doc-examples.md#dart-changed-block-marker
     policy:
+      comment_language: russian_required
       stale_comment: must_update_in_same_change
       todo_fixme: require_reason_and_task_ref
   - id: generic.commenting-v1
@@ -170,6 +176,7 @@ profiles:
       function_doc: aagf/docs/spec/stacks/comment-doc-examples.md#generic-function-doc
       changed_block_marker: aagf/docs/spec/stacks/comment-doc-examples.md#generic-changed-block-marker
     policy:
+      comment_language: russian_required
       stale_comment: must_update_in_same_change
       todo_fixme: require_reason_and_task_ref
 resolution:
